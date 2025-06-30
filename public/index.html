@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Notes</title>
+    <link rel="stylesheet" href="styles.css?v=2025063001">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Mobile overlay for sidebar -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- Sidebar for file explorer -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Notes</h2>
+                <div class="toolbar">
+                    <button id="new-note-btn" title="New Note">📝</button>
+                    <button id="new-folder-btn" title="New Folder">📁</button>
+                </div>
+            </div>
+            <div class="file-explorer" id="file-explorer">
+                <!-- File tree will be populated here -->
+            </div>
+        </div>
+
+        <!-- Main editor area -->
+        <div class="main-content">
+            <div class="editor-header">
+                <div class="header-left">
+                    <button id="mobile-menu-btn" class="mobile-menu-btn" title="Toggle File Explorer">
+                        <span class="hamburger"></span>
+                        <span class="hamburger"></span>
+                        <span class="hamburger"></span>
+                    </button>
+                    <div class="file-path" id="current-file-path">
+                        Select or create a note to start writing
+                    </div>
+                </div>
+                <div class="editor-toolbar">
+                    <button id="delete-btn" title="Delete" disabled>🗑️ Delete</button>
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <div class="editor-split">
+                    <!-- Markdown editor -->
+                    <div class="editor-pane">
+                        <textarea
+                            id="markdown-editor"
+                            placeholder="Start typing your markdown notes...
+
+# Heading 1
+## Heading 2
+### Heading 3
+
+**Bold text**
+*Italic text*
+~~Strikethrough~~
+
+- List item 1
+- List item 2
+
+1. Numbered list
+2. Item 2
+
+`inline code`
+
+```
+code block
+```
+
+[Link text](url)
+![Image alt](image-url)"
+                            disabled
+                        ></textarea>
+                    </div>
+
+                    <!-- Preview pane -->
+                    <div class="preview-pane">
+                        <div id="markdown-preview" class="markdown-content">
+                            <div class="welcome-message">
+                                <h1>Welcome to Markdown Notes</h1>
+                                <p>Select a note from the sidebar or create a new one to start writing.</p>
+                                <h3>Features:</h3>
+                                <ul>
+                                    <li>Live markdown rendering</li>
+                                    <li>File-based storage</li>
+                                    <li>Folder organization</li>
+                                    <li>Auto-save on changes</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="markdown-parser.js?v=2025063001"></script>
+    <script src="app.js?v=2025063001"></script>
+</body>
+</html>
