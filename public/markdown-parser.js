@@ -45,10 +45,42 @@ class MarkdownParser {
         // Handle lists
         html = this.parseLists(html);
 
-        // Apply other markdown rules (before HTML escaping for special chars)
+        // Apply markdown rules EXCEPT line breaks first
         for (const rule of this.rules) {
-            html = html.replace(rule.pattern, rule.replacement);
+            // Skip line break rules for now
+            if (rule.pattern.source !== '\\n\\n' && rule.pattern.source !== '\\n') {
+                html = html.replace(rule.pattern, rule.replacement);
+            }
         }
+
+        // Handle line breaks more carefully - only convert newlines that aren't
+        // already part of block elements or immediately after colons/list headers
+        html = html.replace(/\n\n/g, '</p><p>');
+
+        // Split by lines and handle newlines more selectively
+        const lines = html.split('\n');
+        const processedLines = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const currentLine = lines[i];
+            const nextLine = lines[i + 1];
+
+            processedLines.push(currentLine);
+
+            // Only add <br> if:
+            // - There's a next line
+            // - Current line doesn't end with a colon
+            // - Next line doesn't start with list markers, headings, or HTML tags
+            // - We're not at the end
+            if (nextLine !== undefined &&
+                !currentLine.trim().endsWith(':') &&
+                !nextLine.trim().match(/^[-*+\d#>]|\s*</) &&
+                nextLine.trim() !== '') {
+                processedLines.push('<br>');
+            }
+        }
+
+        html = processedLines.join('\n').replace(/\n/g, '');
 
         // Escape remaining HTML that wasn't converted to markdown
         html = this.escapeRemainingHtml(html);
