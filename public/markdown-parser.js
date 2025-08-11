@@ -132,11 +132,6 @@ class MarkdownParser {
             return `<pre><code${lang ? ` class="language-${lang}"` : ''}>${code.trim()}</code></pre>`;
         });
 
-        // Handle indented code blocks (4 spaces)
-        html = html.replace(/^(    .+)$/gm, (match, code) => {
-            return `<pre><code>${code.substring(4)}</code></pre>`;
-        });
-
         return html;
     }
 
