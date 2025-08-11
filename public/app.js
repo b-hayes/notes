@@ -18,6 +18,7 @@ class NotesApp {
         this.markdownPreview = document.getElementById('markdown-preview');
         this.currentFilePath = document.getElementById('current-file-path');
         this.deleteBtn = document.getElementById('delete-btn');
+        this.renameBtn = document.getElementById('rename-btn');
         this.newNoteBtn = document.getElementById('new-note-btn');
         this.newFolderBtn = document.getElementById('new-folder-btn');
 
@@ -63,6 +64,9 @@ class NotesApp {
         this.sidebarOverlay.addEventListener('click', () => {
             this.closeMobileMenu();
         });
+
+        // Rename button event
+        this.renameBtn.addEventListener('click', () => this.renameCurrentFile());
     }
 
     async loadFileStructure() {
@@ -323,6 +327,7 @@ class NotesApp {
             this.markdownEditor.disabled = false;
             this.currentFilePath.textContent = filePath;
             this.deleteBtn.disabled = false;
+            this.renameBtn.disabled = false;
             this.unsavedChanges = false;
 
             // Update preview
@@ -424,6 +429,7 @@ class NotesApp {
             this.markdownEditor.disabled = true;
             this.currentFilePath.textContent = 'Select or create a note to start writing';
             this.deleteBtn.disabled = true;
+            this.renameBtn.disabled = true;
             this.currentFile = null;
             this.unsavedChanges = false;
 
@@ -579,6 +585,46 @@ class NotesApp {
                 document.body.removeChild(notification);
             }, 300);
         }, 3000);
+    }
+
+    async renameCurrentFile() {
+        if (!this.currentFile) return;
+
+        const currentFileName = this.currentFile.split('/').pop().replace('.md', '');
+        const newFileName = prompt('Enter new file name (without .md extension):', currentFileName);
+        if (!newFileName) return;
+
+        // Keep the file in the same directory
+        const pathParts = this.currentFile.split('/');
+        pathParts[pathParts.length - 1] = `${newFileName}.md`;
+        const newFilePath = pathParts.join('/');
+
+        try {
+            const response = await fetch(`/api/move/${this.currentFile}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    destinationPath: newFilePath
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to rename file');
+            }
+
+            this.showSuccess('File renamed');
+
+            // Update current file and refresh file structure
+            this.currentFile = newFilePath;
+            this.currentFilePath.textContent = newFilePath;
+            await this.loadFileStructure();
+
+        } catch (error) {
+            console.error('Error renaming file:', error);
+            this.showError('Failed to rename file');
+        }
     }
 }
 

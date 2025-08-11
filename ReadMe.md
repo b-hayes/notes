@@ -14,8 +14,8 @@ A simple, web-based markdown notes application with live preview and file organi
 ## Getting Started
 
 1. Clone or download this repository
-2. Open `public/index.html` in your web browser
-3. Start creating notes and folders using the sidebar controls
+2. run `nom install` and `docker compose up` to start the application
+3. Open your browser and navigate to `http://localhost:3000`
 
 ## Usage
 

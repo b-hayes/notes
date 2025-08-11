@@ -11,12 +11,3 @@ services:
       - NODE_ENV=development
     command: npm run dev
     restart: unless-stopped
-
-  # Optional: If you want to use the Apache/PHP setup instead
-  # apache-php:
-  #   image: php:8.3-apache
-  #   ports:
-  #     - "8080:80"
-  #   volumes:
-  #     - ./php-app:/var/www/html
-  #     - ./data:/var/www/html/data

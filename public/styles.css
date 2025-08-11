@@ -227,10 +227,45 @@ body {
     align-items: center;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-path-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .file-path {
     font-size: 14px;
     color: var(--text-secondary);
     font-weight: 500;
+}
+
+.rename-btn {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+    opacity: 0.8;
+}
+
+.rename-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    opacity: 1;
+}
+
+.rename-btn:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .editor-toolbar {
