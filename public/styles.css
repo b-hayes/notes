@@ -293,6 +293,15 @@ body {
     cursor: not-allowed;
 }
 
+/* Help button specific styling - blue instead of red */
+.editor-toolbar #help-btn {
+    background: var(--accent-primary);
+}
+
+.editor-toolbar #help-btn:hover {
+    background: var(--accent-hover);
+}
+
 .editor-container {
     flex: 1;
     overflow: hidden;

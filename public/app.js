@@ -10,7 +10,7 @@ class NotesApp {
         this.initializeElements();
         this.bindEvents();
         this.loadFileStructure();
-        this.loadWelcomeContent(); // Load welcome content on startup
+        this.loadLastSelectedNote(); // Load last selected note or welcome content
     }
 
     initializeElements() {
@@ -22,6 +22,7 @@ class NotesApp {
         this.renameBtn = document.getElementById('rename-btn');
         this.newNoteBtn = document.getElementById('new-note-btn');
         this.newFolderBtn = document.getElementById('new-folder-btn');
+        this.helpBtn = document.getElementById('help-btn');
 
         // Mobile elements
         this.sidebar = document.getElementById('sidebar');
@@ -78,6 +79,7 @@ class NotesApp {
         this.deleteBtn.addEventListener('click', () => this.deleteCurrentFile());
         this.newNoteBtn.addEventListener('click', () => this.createNewNote());
         this.newFolderBtn.addEventListener('click', () => this.createNewFolder());
+        this.helpBtn.addEventListener('click', () => this.showHelp());
 
         // Auto-save on window beforeunload
         window.addEventListener('beforeunload', (e) => {
@@ -361,6 +363,9 @@ class NotesApp {
             this.deleteBtn.disabled = false;
             this.renameBtn.disabled = false;
             this.unsavedChanges = false;
+
+            // Save to localStorage for persistence
+            localStorage.setItem('lastSelectedNote', filePath);
 
             // Update preview
             this.updatePreview();
@@ -849,6 +854,31 @@ Select a note from the sidebar or create a new one to start writing.
 
     resetToWelcome() {
         this.loadWelcomeContent();
+    }
+
+    showHelp() {
+        // Clear localStorage to show welcome content and reset state
+        localStorage.removeItem('lastSelectedNote');
+        this.resetToWelcome();
+    }
+
+    async loadLastSelectedNote() {
+        const lastSelectedNote = localStorage.getItem('lastSelectedNote');
+
+        if (lastSelectedNote) {
+            try {
+                // Try to load the last selected note
+                await this.openFile(lastSelectedNote);
+            } catch (error) {
+                console.log('Last selected note not found, loading welcome content');
+                // If the file doesn't exist anymore, clear localStorage and load welcome
+                localStorage.removeItem('lastSelectedNote');
+                this.loadWelcomeContent();
+            }
+        } else {
+            // No previous selection, load welcome content
+            this.loadWelcomeContent();
+        }
     }
 }
 
