@@ -36,9 +36,40 @@ class NotesApp {
         });
 
         this.markdownEditor.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 's') {
+            // Ctrl+S - Save with notification
+            if (e.ctrlKey && (e.key.toLowerCase() === 's' || e.code === 'KeyS')) {
                 e.preventDefault();
-                this.saveCurrentFile();
+                this.saveCurrentFileWithNotification();
+            }
+
+            // Ctrl+D - Duplicate current line
+            if (e.ctrlKey && (e.key.toLowerCase() === 'd' || e.code === 'KeyD')) {
+                e.preventDefault();
+                this.duplicateLine();
+            }
+
+            // Alt+Shift+Up - Move line up
+            if (e.altKey && e.shiftKey && e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.moveLineUp();
+            }
+
+            // Alt+Shift+Down - Move line down
+            if (e.altKey && e.shiftKey && e.key === 'ArrowDown') {
+                e.preventDefault();
+                this.moveLineDown();
+            }
+
+            // Ctrl+B - Bold
+            if (e.ctrlKey && (e.key.toLowerCase() === 'b' || e.code === 'KeyB')) {
+                e.preventDefault();
+                this.toggleBold();
+            }
+
+            // Ctrl+I - Italic
+            if (e.ctrlKey && (e.key.toLowerCase() === 'i' || e.code === 'KeyI')) {
+                e.preventDefault();
+                this.toggleItalic();
             }
         });
 
@@ -625,6 +656,142 @@ class NotesApp {
             console.error('Error renaming file:', error);
             this.showError('Failed to rename file');
         }
+    }
+
+    async saveCurrentFileWithNotification() {
+        if (!this.currentFile) return;
+
+        try {
+            await this.saveCurrentFile();
+            this.showSuccess('File saved');
+        } catch (error) {
+            this.showError('Failed to save file');
+        }
+    }
+
+    duplicateLine() {
+        const textarea = this.markdownEditor;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+
+        // Find the start and end of the current line
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const lineEnd = value.indexOf('\n', end);
+        const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
+
+        // Get the current line content
+        const currentLine = value.substring(lineStart, actualLineEnd);
+
+        // Insert the duplicated line
+        const newValue = value.substring(0, actualLineEnd) + '\n' + currentLine + value.substring(actualLineEnd);
+        textarea.value = newValue;
+
+        // Position cursor at the beginning of the duplicated line
+        const newCursorPos = actualLineEnd + 1;
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+
+        this.onEditorChange();
+    }
+
+    moveLineUp() {
+        this.moveLine(-1);
+    }
+
+    moveLineDown() {
+        this.moveLine(1);
+    }
+
+    moveLine(direction) {
+        const textarea = this.markdownEditor;
+        const start = textarea.selectionStart;
+        const value = textarea.value;
+
+        // Find current line boundaries
+        const currentLineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const currentLineEnd = value.indexOf('\n', start);
+        const actualCurrentLineEnd = currentLineEnd === -1 ? value.length : currentLineEnd;
+
+        const currentLine = value.substring(currentLineStart, actualCurrentLineEnd);
+
+        if (direction === -1) {
+            // Moving up
+            if (currentLineStart === 0) return; // Already at top
+
+            const prevLineStart = value.lastIndexOf('\n', currentLineStart - 2) + 1;
+            const prevLine = value.substring(prevLineStart, currentLineStart - 1);
+
+            // Build new content
+            const before = value.substring(0, prevLineStart);
+            const after = value.substring(actualCurrentLineEnd);
+
+            textarea.value = before + currentLine + '\n' + prevLine + after;
+
+            // Update cursor position
+            textarea.selectionStart = textarea.selectionEnd = prevLineStart + (start - currentLineStart);
+
+        } else {
+            // Moving down
+            if (actualCurrentLineEnd === value.length) return; // Already at bottom
+
+            const nextLineEnd = value.indexOf('\n', actualCurrentLineEnd + 1);
+            const actualNextLineEnd = nextLineEnd === -1 ? value.length : nextLineEnd;
+            const nextLine = value.substring(actualCurrentLineEnd + 1, actualNextLineEnd);
+
+            // Build new content
+            const before = value.substring(0, currentLineStart);
+            const after = value.substring(actualNextLineEnd);
+
+            textarea.value = before + nextLine + '\n' + currentLine + after;
+
+            // Update cursor position
+            textarea.selectionStart = textarea.selectionEnd = currentLineStart + nextLine.length + 1 + (start - currentLineStart);
+        }
+
+        this.onEditorChange();
+    }
+
+    toggleBold() {
+        this.wrapSelectionWithMarkdown('**');
+    }
+
+    toggleItalic() {
+        this.wrapSelectionWithMarkdown('*');
+    }
+
+    wrapSelectionWithMarkdown(wrapper) {
+        const textarea = this.markdownEditor;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+        const selectedText = value.substring(start, end);
+
+        if (selectedText) {
+            // Check if text is already wrapped
+            const beforeSelection = value.substring(start - wrapper.length, start);
+            const afterSelection = value.substring(end, end + wrapper.length);
+
+            if (beforeSelection === wrapper && afterSelection === wrapper) {
+                // Remove existing wrapper
+                textarea.value = value.substring(0, start - wrapper.length) + selectedText + value.substring(end + wrapper.length);
+                textarea.selectionStart = start - wrapper.length;
+                textarea.selectionEnd = end - wrapper.length;
+            } else {
+                // Add wrapper
+                const wrappedText = wrapper + selectedText + wrapper;
+                textarea.value = value.substring(0, start) + wrappedText + value.substring(end);
+                textarea.selectionStart = start + wrapper.length;
+                textarea.selectionEnd = end + wrapper.length;
+            }
+        } else {
+            // No selection, insert wrapper and position cursor inside
+            const wrappedText = wrapper + wrapper;
+            textarea.value = value.substring(0, start) + wrappedText + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start + wrapper.length;
+        }
+
+        textarea.focus();
+        this.onEditorChange();
     }
 }
 
