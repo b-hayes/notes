@@ -10,6 +10,7 @@ class NotesApp {
         this.initializeElements();
         this.bindEvents();
         this.loadFileStructure();
+        this.loadWelcomeContent(); // Load welcome content on startup
     }
 
     initializeElements() {
@@ -455,25 +456,11 @@ class NotesApp {
                 throw new Error('Failed to delete file');
             }
 
-            // Clear editor
-            this.markdownEditor.value = '';
-            this.markdownEditor.disabled = true;
-            this.currentFilePath.textContent = 'Select or create a note to start writing';
-            this.deleteBtn.disabled = true;
-            this.renameBtn.disabled = true;
-            this.currentFile = null;
-            this.unsavedChanges = false;
-
             // Refresh file structure
             await this.loadFileStructure();
 
-            // Reset preview
-            this.markdownPreview.innerHTML = `
-                <div class="welcome-message">
-                    <h1>Welcome to Markdown Notes</h1>
-                    <p>Select a note from the sidebar or create a new one to start writing.</p>
-                </div>
-            `;
+            // Reset to welcome content
+            this.resetToWelcome();
 
             this.showSuccess('File deleted');
 
@@ -792,6 +779,76 @@ class NotesApp {
 
         textarea.focus();
         this.onEditorChange();
+    }
+
+    async loadWelcomeContent() {
+        try {
+            const response = await fetch('/Welcome.md');
+            if (response.ok) {
+                const welcomeContent = await response.text();
+                this.markdownEditor.value = welcomeContent;
+                this.markdownPreview.innerHTML = this.parser.parse(welcomeContent);
+            } else {
+                // Fallback to default welcome message if Welcome.md not found
+                const fallbackContent = `# Welcome to Markdown Notes
+
+This is your first note! You can edit this content and see the changes reflected in real-time in the preview pane.
+
+## Features
+
+- **Live Preview**: See your markdown rendered as you type
+- **File Management**: Create, edit, and delete notes
+- **Folder Organisation**: Organise your notes in folders
+- **Auto-save**: Your changes are automatically saved
+- **Keyboard Shortcuts**: Speed up your editing with handy shortcuts
+
+## Keyboard Shortcuts
+
+The editor supports several helpful keyboard shortcuts to improve your writing experience:
+
+- **Ctrl+S**: Save the current file (shows confirmation message)
+- **Ctrl+D**: Duplicate the current line
+- **Alt+Shift+↑**: Move the current line up
+- **Alt+Shift+↓**: Move the current line down
+- **Ctrl+B**: Toggle bold formatting for selected text
+- **Ctrl+I**: Toggle italic formatting for selected text
+
+*Note: Auto-save is always active, but Ctrl+S provides reassurance for those who habitually save their work.*
+
+Select a note from the sidebar or create a new one to start writing.`;
+
+                this.markdownEditor.value = fallbackContent;
+                this.markdownPreview.innerHTML = this.parser.parse(fallbackContent);
+            }
+        } catch (error) {
+            console.error('Error loading welcome content:', error);
+            // Fallback to default welcome message
+            const fallbackContent = `# Welcome to Markdown Notes
+
+Select a note from the sidebar or create a new one to start writing.
+
+## Keyboard Shortcuts
+
+- **Ctrl+S**: Save file
+- **Ctrl+D**: Duplicate line
+- **Alt+Shift+↑/↓**: Move line up/down
+- **Ctrl+B/I**: Bold/Italic`;
+
+            this.markdownEditor.value = fallbackContent;
+            this.markdownPreview.innerHTML = this.parser.parse(fallbackContent);
+        }
+
+        // Set initial state
+        this.markdownEditor.disabled = true;
+        this.currentFilePath.textContent = 'Welcome - Select or create a note to start editing';
+        this.deleteBtn.disabled = true;
+        this.renameBtn.disabled = true;
+        this.currentFile = null;
+        this.unsavedChanges = false;
+    }
+
+    resetToWelcome() {
+        this.loadWelcomeContent();
     }
 }
 
