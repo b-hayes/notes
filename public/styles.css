@@ -308,14 +308,17 @@ body {
 }
 
 .editor-split {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     height: 100%;
+    gap: 0;
 }
 
 .editor-pane, .preview-pane {
-    flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .editor-pane {
@@ -333,6 +336,9 @@ body {
     resize: none;
     background: var(--bg-editor-input);
     color: var(--text-body);
+    white-space: pre-line !important;
+    word-break: break-all !important;
+    min-width: 0;
 }
 
 #markdown-editor:disabled {
@@ -602,15 +608,14 @@ body {
     }
 
     .editor-split {
-        flex-direction: row;
+        grid-template-columns: 100vw 100vw;
         width: 200vw; /* Double width to fit both panes */
         min-width: 200vw;
     }
 
     .editor-pane, .preview-pane {
-        width: 50vw; /* Each pane takes half of the double width */
-        min-width: 50vw;
-        flex-shrink: 0;
+        width: 100vw; /* Each pane takes full viewport width */
+        min-width: 100vw;
     }
 
     .editor-pane {

@@ -871,7 +871,7 @@ Select a note from the sidebar or create a new one to start writing.
                 await this.openFile(lastSelectedNote);
             } catch (error) {
                 console.log('Last selected note not found, loading welcome content');
-                // If the file doesn't exist anymore, clear localStorage and load welcome
+                // The file may not exist anymore, clear localStorage and load welcome
                 localStorage.removeItem('lastSelectedNote');
                 this.loadWelcomeContent();
             }
