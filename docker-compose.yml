@@ -1,5 +1,6 @@
 services:
   notes-app:
+    container_name: notes
     build: .
     ports:
       - "3000:3000"
@@ -7,7 +8,10 @@ services:
       - ./data:/app/data
       - ./public:/app/public
       - ./server.js:/app/server.js
+      - ./bin:/app/bin
+      - ./lib:/app/lib
     environment:
       - NODE_ENV=development
+      - TZ=Australia/Hobart
     command: npm run dev
     restart: unless-stopped
