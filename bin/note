@@ -164,10 +164,11 @@ async function cmdMv(args) {
 
 async function cmdList(args) {
   const flat = args.includes('--flat');
-  const pathArg = args.find(arg => !arg.startsWith('--')) || '.';
+  const recursive = args.includes('-r');
+  const pathArg = args.find(arg => !arg.startsWith('-')) || '.';
 
   try {
-    const result = await noteManager.list(pathArg);
+    const result = await noteManager.list(pathArg, recursive);
     result.items.forEach(item => {
       if (flat) {
         if (item.type === 'file') {
@@ -240,11 +241,58 @@ async function cmdInteractive() {
 
   let currentPath = '';
 
+  async function searchAll() {
+    // Get ALL files recursively
+    const result = await noteManager.list('.', true);
+    const files = result.items.filter(item => item.type === 'file');
+
+    if (files.length === 0) {
+      warning('No notes found');
+      return { action: 'exit' };
+    }
+
+    return new Promise((resolve) => {
+      const fzf = spawn('fzf', [
+        '--prompt=Search all files > ',
+        '--ansi',
+        '--layout=reverse',
+        '--with-nth=1',
+        '--delimiter=\t',
+        '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; fi',
+        '--preview-window=right:60%:wrap',
+        '--header=Enter: open | Esc: back to browse'
+      ], { stdio: ['pipe', 'pipe', 'inherit'] });
+
+      // Write all files
+      const fzfInput = files.map(file => {
+        return `📄 ${file.path}\t${file.path}`;
+      }).join('\n');
+
+      fzf.stdin.write(fzfInput);
+      fzf.stdin.end();
+
+      let selected = '';
+      fzf.stdout.on('data', data => selected += data.toString());
+
+      fzf.on('exit', (code) => {
+        if (code === 130) {
+          // User cancelled - go back to browse
+          resolve({ action: 'browse' });
+        } else if (code === 0 && selected.trim()) {
+          const selectedLine = selected.trim();
+          const [display, filePath] = selectedLine.split('\t');
+          resolve({ action: 'open', path: filePath });
+        } else {
+          resolve({ action: 'browse' });
+        }
+      });
+    });
+  }
+
   async function browse(dirPath) {
-    // Get directory contents (non-recursive for folders, recursive for files)
+    // Get directory contents (non-recursive - local only)
     const fullPath = dirPath || '.';
-    const localResult = await noteManager.list(fullPath, false);
-    const allFilesResult = await noteManager.list('.', true);
+    const result = await noteManager.list(fullPath, false);
 
     const items = [];
 
@@ -253,25 +301,13 @@ async function cmdInteractive() {
       items.push({ type: 'parent', display: '📁 ..', path: null });
     }
 
-    // Add local folders first
-    localResult.items.forEach(item => {
-      if (item.type === 'dir') {
-        const itemName = pathModule.basename(item.path);
-        const display = '📁 ' + itemName;
-        items.push({
-          type: 'dir',
-          path: item.path,
-          display: display
-        });
-      }
-    });
-
-    // Then add ALL files (recursive) for search
-    const allFiles = allFilesResult.items.filter(item => item.type === 'file');
-    allFiles.forEach(item => {
-      const display = '📄 ' + item.path;
+    // Add folders and files from current directory only
+    result.items.forEach(item => {
+      const itemName = pathModule.basename(item.path);
+      const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
+      const display = prefix + itemName;
       items.push({
-        type: 'file',
+        type: item.type,
         path: item.path,
         display: display
       });
@@ -292,7 +328,8 @@ async function cmdInteractive() {
         '--delimiter=\t',
         '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; elif [ -d ' + DATA_DIR + '/{2} ]; then node /app/bin/note ls {2}; fi',
         '--preview-window=right:60%:wrap',
-        '--header=Enter: open/navigate | Esc: exit'
+        '--header=Enter: open/navigate | Ctrl-F: search all files | Esc: exit',
+        '--bind', 'ctrl-f:execute-silent(echo __SEARCH__ > /tmp/fzf-action)+abort'
       ], { stdio: ['pipe', 'pipe', 'inherit'] });
 
       // Write items to fzf with tab-separated display and path
@@ -310,8 +347,22 @@ async function cmdInteractive() {
       fzf.stdout.on('data', data => selected += data.toString());
 
       fzf.on('exit', (code) => {
-        if (code === 130) {
-          // User cancelled
+        // Check if Ctrl-F was pressed
+        let isSearch = false;
+        try {
+          const marker = fs.readFileSync('/tmp/fzf-action', 'utf8').trim();
+          if (marker === '__SEARCH__') {
+            isSearch = true;
+            fs.unlinkSync('/tmp/fzf-action');
+          }
+        } catch (e) {
+          // Marker file doesn't exist, not a search
+        }
+
+        if (isSearch) {
+          resolve({ action: 'search' });
+        } else if (code === 130) {
+          // User cancelled with Esc
           resolve({ action: 'exit' });
         } else if (code === 0 && selected.trim()) {
           const selectedLine = selected.trim();
@@ -346,6 +397,18 @@ async function cmdInteractive() {
 
     if (result.action === 'exit') {
       process.exit(0);
+    } else if (result.action === 'search') {
+      // Switch to search all files mode
+      const searchResult = await searchAll();
+
+      if (searchResult.action === 'open') {
+        // Open the selected file
+        await openFile(searchResult.path);
+        // After editing, return to browse mode at current path
+      } else if (searchResult.action === 'exit') {
+        process.exit(0);
+      }
+      // If action is 'browse', just continue to current path
     } else if (result.action === 'select') {
       const item = result.item;
 
