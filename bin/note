@@ -175,8 +175,10 @@ async function cmdList(args) {
           console.log(item.path);
         }
       } else {
-        const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
-        console.log(`${prefix}${item.path}`);
+        const icon = item.type === 'dir' ? '📁' : '📄';
+        const indent = '  '.repeat(item.indentLevel || 0);
+        const prefix = item.indentLevel > 0 ? '├─ ' : '';
+        console.log(`${indent}${prefix}${icon} ${item.name}`);
       }
     });
   } catch (err) {
@@ -242,14 +244,27 @@ async function cmdInteractive() {
   let currentPath = '';
 
   async function searchAll() {
-    // Get ALL files recursively
+    // Get ALL items recursively
     const result = await noteManager.list('.', true);
-    const files = result.items.filter(item => item.type === 'file');
 
-    if (files.length === 0) {
+    if (result.items.length === 0) {
       warning('No notes found');
       return { action: 'exit' };
     }
+
+    // Build display list using same tree logic as cmdList
+    const displayItems = result.items.map(item => {
+      const icon = item.type === 'dir' ? '📁' : '📄';
+      const indent = '  '.repeat(item.indentLevel || 0);
+      const prefix = item.indentLevel > 0 ? '├─ ' : '';
+      const display = `${indent}${prefix}${icon} ${item.name}`;
+
+      return {
+        display: display,
+        path: item.path,
+        type: item.type
+      };
+    });
 
     return new Promise((resolve) => {
       const fzf = spawn('fzf', [
@@ -263,9 +278,9 @@ async function cmdInteractive() {
         '--header=Enter: open | Esc: back to browse'
       ], { stdio: ['pipe', 'pipe', 'inherit'] });
 
-      // Write all files
-      const fzfInput = files.map(file => {
-        return `📄 ${file.path}\t${file.path}`;
+      // Write items
+      const fzfInput = displayItems.map(item => {
+        return `${item.display}\t${item.path}`;
       }).join('\n');
 
       fzf.stdin.write(fzfInput);
@@ -280,8 +295,14 @@ async function cmdInteractive() {
           resolve({ action: 'browse' });
         } else if (code === 0 && selected.trim()) {
           const selectedLine = selected.trim();
-          const [display, filePath] = selectedLine.split('\t');
-          resolve({ action: 'open', path: filePath });
+          const filePath = selectedLine.split('\t')[1];
+          const selectedItem = displayItems.find(item => item.path === filePath);
+
+          if (selectedItem) {
+            resolve({ action: 'select', item: selectedItem });
+          } else {
+            resolve({ action: 'browse' });
+          }
         } else {
           resolve({ action: 'browse' });
         }
@@ -401,10 +422,17 @@ async function cmdInteractive() {
       // Switch to search all files mode
       const searchResult = await searchAll();
 
-      if (searchResult.action === 'open') {
-        // Open the selected file
-        await openFile(searchResult.path);
-        // After editing, return to browse mode at current path
+      if (searchResult.action === 'select') {
+        const item = searchResult.item;
+
+        if (item.type === 'dir') {
+          // Navigate into the directory
+          currentPath = item.path;
+        } else if (item.type === 'file') {
+          // Open the file
+          await openFile(item.path);
+          // After editing, return to browse mode at current path
+        }
       } else if (searchResult.action === 'exit') {
         process.exit(0);
       }
