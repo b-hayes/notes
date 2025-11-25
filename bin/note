@@ -177,7 +177,7 @@ async function cmdList(args) {
       } else {
         const icon = item.type === 'dir' ? '📁' : '📄';
         const indent = '  '.repeat(item.indentLevel || 0);
-        const prefix = item.indentLevel > 0 ? '├─ ' : '';
+        const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
         console.log(`${indent}${prefix}${icon} ${item.name}`);
       }
     });
@@ -256,7 +256,7 @@ async function cmdInteractive() {
     const displayItems = result.items.map(item => {
       const icon = item.type === 'dir' ? '📁' : '📄';
       const indent = '  '.repeat(item.indentLevel || 0);
-      const prefix = item.indentLevel > 0 ? '├─ ' : '';
+      const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
       const display = `${indent}${prefix}${icon} ${item.name}`;
 
       return {
