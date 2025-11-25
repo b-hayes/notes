@@ -163,13 +163,20 @@ async function cmdMv(args) {
 }
 
 async function cmdList(args) {
-  const [pathArg = '.'] = args;
+  const flat = args.includes('--flat');
+  const pathArg = args.find(arg => !arg.startsWith('--')) || '.';
 
   try {
     const result = await noteManager.list(pathArg);
     result.items.forEach(item => {
-      const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
-      console.log(`${prefix}${item.path}`);
+      if (flat) {
+        if (item.type === 'file') {
+          console.log(item.path);
+        }
+      } else {
+        const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
+        console.log(`${prefix}${item.path}`);
+      }
     });
   } catch (err) {
     error(err.message);
@@ -217,6 +224,151 @@ async function cmdQuick(args) {
   }
 }
 
+async function cmdInteractive() {
+  const { spawn } = require('child_process');
+  const pathModule = require('path');
+
+  // Check if fzf is installed
+  try {
+    await new Promise((resolve, reject) => {
+      const check = spawn('which', ['fzf']);
+      check.on('exit', code => code === 0 ? resolve() : reject());
+    });
+  } catch (err) {
+    error('fzf is not installed. Please install it:\n  https://github.com/junegunn/fzf#installation');
+  }
+
+  let currentPath = '';
+
+  async function browse(dirPath) {
+    // Get directory contents (non-recursive for folders, recursive for files)
+    const fullPath = dirPath || '.';
+    const localResult = await noteManager.list(fullPath, false);
+    const allFilesResult = await noteManager.list('.', true);
+
+    const items = [];
+
+    // Add parent directory option if not at root
+    if (dirPath) {
+      items.push({ type: 'parent', display: '📁 ..', path: null });
+    }
+
+    // Add local folders first
+    localResult.items.forEach(item => {
+      if (item.type === 'dir') {
+        const itemName = pathModule.basename(item.path);
+        const display = '📁 ' + itemName;
+        items.push({
+          type: 'dir',
+          path: item.path,
+          display: display
+        });
+      }
+    });
+
+    // Then add ALL files (recursive) for search
+    const allFiles = allFilesResult.items.filter(item => item.type === 'file');
+    allFiles.forEach(item => {
+      const display = '📄 ' + item.path;
+      items.push({
+        type: 'file',
+        path: item.path,
+        display: display
+      });
+    });
+
+    if (items.length === 0) {
+      warning('Empty directory');
+      return;
+    }
+
+    // Run fzf
+    return new Promise((resolve) => {
+      const fzf = spawn('fzf', [
+        '--prompt=' + (dirPath || 'root') + ' > ',
+        '--ansi',
+        '--layout=reverse',
+        '--with-nth=1',
+        '--delimiter=\t',
+        '--preview', 'test -f ' + DATA_DIR + '/{2}.md && cat ' + DATA_DIR + '/{2}.md || true',
+        '--preview-window=right:60%:wrap',
+        '--header=Enter: open/navigate | Esc: exit'
+      ], { stdio: ['pipe', 'pipe', 'inherit'] });
+
+      // Write items to fzf with tab-separated display and path
+      const fzfInput = items.map(item => {
+        if (item.type === 'parent') {
+          return '📁 ..\t';
+        }
+        return `${item.display}\t${item.path}`;
+      }).join('\n');
+
+      fzf.stdin.write(fzfInput);
+      fzf.stdin.end();
+
+      let selected = '';
+      fzf.stdout.on('data', data => selected += data.toString());
+
+      fzf.on('exit', (code) => {
+        if (code === 130) {
+          // User cancelled
+          resolve({ action: 'exit' });
+        } else if (code === 0 && selected.trim()) {
+          const selectedLine = selected.trim();
+          const [display, itemPath] = selectedLine.split('\t');
+          const selectedItem = items.find(item => item.display === display || (item.type === 'parent' && display === '📁 ..'));
+
+          if (selectedItem) {
+            resolve({ action: 'select', item: selectedItem });
+          } else {
+            resolve({ action: 'browse', path: dirPath });
+          }
+        } else {
+          resolve({ action: 'exit' });
+        }
+      });
+    });
+  }
+
+  async function openFile(filePath) {
+    const fullPath = noteManager.getFullPath(filePath);
+    const editor = process.env.EDITOR || 'nano';
+
+    return new Promise((resolve) => {
+      const edit = spawn(editor, [fullPath], { stdio: 'inherit' });
+      edit.on('exit', () => resolve());
+    });
+  }
+
+  // Main browse loop
+  while (true) {
+    const result = await browse(currentPath);
+
+    if (result.action === 'exit') {
+      process.exit(0);
+    } else if (result.action === 'select') {
+      const item = result.item;
+
+      if (item.type === 'parent') {
+        // Go up one level
+        const parts = currentPath.split('/').filter(p => p);
+        parts.pop();
+        currentPath = parts.join('/');
+      } else if (item.type === 'dir') {
+        // Navigate into directory
+        currentPath = item.path;
+      } else if (item.type === 'file') {
+        // Open file in editor
+        await openFile(item.path);
+        // After editing, return to browser
+      }
+    } else {
+      // Re-browse current directory
+      continue;
+    }
+  }
+}
+
 async function cmdInstall() {
   const homeDir = process.env.HOME;
   const bashProfile = fs.existsSync(path.join(homeDir, '.bash_profile'))
@@ -233,7 +385,7 @@ async function cmdInstall() {
     // File doesn't exist, will be created
   }
 
-  const aliasLine = `alias note='docker exec -i notes node /app/bin/note'`;
+  const aliasLine = `alias note='docker exec -it notes node /app/bin/note'`;
 
   fs.appendFileSync(bashProfile, `\n# Note CLI\n${aliasLine}\n`);
 
@@ -244,7 +396,7 @@ async function cmdInstall() {
 
 function showCommands() {
   console.log(`Note CLI Commands:
-  write, new, append, read, cat, edit, rm, mv, list, ls, search, -q, install
+  write, new, append, read, cat, edit, rm, mv, list, ls, search, -q, -i, install
 
 Run 'note --help' for detailed usage`);
 }
@@ -271,6 +423,9 @@ Quick Journal:
   -q [content]              Add timestamped entry to today's journal
                            (reads today's journal if no content)
 
+Interactive:
+  -i                        Browse notes interactively with fzf (requires fzf)
+
 Setup:
   install                   Add docker exec alias to bash profile
 
@@ -283,7 +438,8 @@ Notes:
 Examples:
   note write ideas/project "My new idea"
   echo "Content" | note write path/to/note
-  note -q "Quick thought for today"
+  note -q Quick thought without quotes
+  note -i
   note search "docker" -l
   note ls ideas/
   note read ideas/project | grep "important"
@@ -336,6 +492,9 @@ async function main() {
         break;
       case '-q':
         await cmdQuick(commandArgs);
+        break;
+      case '-i':
+        await cmdInteractive();
         break;
       case 'install':
         await cmdInstall();
