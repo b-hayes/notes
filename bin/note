@@ -10,490 +10,675 @@ const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZ
 const noteManager = new NoteManager(DATA_DIR, TIMEZONE);
 
 const colors = {
-  red: '\x1b[0;31m',
-  green: '\x1b[0;32m',
-  yellow: '\x1b[1;33m',
-  reset: '\x1b[0m'
+    red: '\x1b[0;31m',
+    green: '\x1b[0;32m',
+    yellow: '\x1b[1;33m',
+    reset: '\x1b[0m'
 };
 
 function error(msg) {
-  console.error(`${colors.red}Error: ${msg}${colors.reset}`);
-  process.exit(1);
+    console.error(`${colors.red}Error: ${msg}${colors.reset}`);
+    process.exit(1);
 }
 
 function success(msg) {
-  console.log(`${colors.green}${msg}${colors.reset}`);
+    console.log(`${colors.green}${msg}${colors.reset}`);
 }
 
 function warning(msg) {
-  console.log(`${colors.yellow}${msg}${colors.reset}`);
+    console.log(`${colors.yellow}${msg}${colors.reset}`);
 }
 
 async function readStdin() {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => data += chunk);
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', reject);
-  });
+    return new Promise((resolve, reject) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => data += chunk);
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', reject);
+    });
 }
 
 async function getContent(arg) {
-  if (arg) return arg;
-  if (!process.stdin.isTTY) {
-    const content = await readStdin();
-    return content.trim();
-  }
-  return null;
+    if (arg) return arg;
+    if (!process.stdin.isTTY) {
+        const content = await readStdin();
+        return content.trim();
+    }
+    return null;
 }
 
 function confirm(question) {
-  return new Promise((resolve) => {
-    const readline = require('readline').createInterface({
-      input: process.stdin,
-      output: process.stdout
+    return new Promise((resolve) => {
+        const readline = require('readline').createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        readline.question(`${colors.yellow}${question} (y/N)${colors.reset} `, (answer) => {
+            readline.close();
+            resolve(answer.toLowerCase() === 'y');
+        });
     });
-    readline.question(`${colors.yellow}${question} (y/N)${colors.reset} `, (answer) => {
-      readline.close();
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
 }
 
 async function cmdWrite(args) {
-  const [pathArg, ...contentParts] = args;
-  if (!pathArg) error('path required\nUsage: note write <path> [content]');
+    const [pathArg, ...contentParts] = args;
+    if (!pathArg) error('path required\nUsage: note write <path> [content]');
 
-  const content = await getContent(contentParts.join(' '));
-  if (!content) error('content required (provide as argument or via stdin)');
+    const content = await getContent(contentParts.join(' '));
+    if (!content) error('content required (provide as argument or via stdin)');
 
-  await noteManager.write(pathArg, content);
-  success(`Written: ${pathArg}`);
+    await noteManager.write(pathArg, content);
+    success(`Written: ${pathArg}`);
 }
 
 async function cmdNew(args) {
-  const [pathArg, ...contentParts] = args;
-  if (!pathArg) error('path required\nUsage: note new <path> [content]');
+    const [pathArg, ...contentParts] = args;
+    if (!pathArg) error('path required\nUsage: note new <path> [content]');
 
-  const content = await getContent(contentParts.join(' '));
-  if (!content) error('content required (provide as argument or via stdin)');
+    const content = await getContent(contentParts.join(' '));
+    if (!content) error('content required (provide as argument or via stdin)');
 
-  try {
-    await noteManager.new(pathArg, content);
-    success(`Created: ${pathArg}`);
-  } catch (err) {
-    error(err.message);
-  }
+    try {
+        await noteManager.new(pathArg, content);
+        success(`Created: ${pathArg}`);
+    } catch (err) {
+        error(err.message);
+    }
 }
 
 async function cmdAppend(args) {
-  const [pathArg, ...contentParts] = args;
-  if (!pathArg) error('path required\nUsage: note append <path> [content]');
+    const [pathArg, ...contentParts] = args;
+    if (!pathArg) error('path required\nUsage: note append <path> [content]');
 
-  const content = await getContent(contentParts.join(' '));
-  if (!content) error('content required (provide as argument or via stdin)');
+    const content = await getContent(contentParts.join(' '));
+    if (!content) error('content required (provide as argument or via stdin)');
 
-  await noteManager.append(pathArg, content);
-  success(`Appended to: ${pathArg}`);
+    await noteManager.append(pathArg, content);
+    success(`Appended to: ${pathArg}`);
 }
 
 async function cmdRead(args) {
-  const [pathArg] = args;
-  if (!pathArg) error('path required\nUsage: note read <path>');
+    const [pathArg] = args;
+    if (!pathArg) error('path required\nUsage: note read <path>');
 
-  try {
-    const result = await noteManager.read(pathArg);
-    console.log(result.content);
-  } catch (err) {
-    error(err.message);
-  }
+    try {
+        const result = await noteManager.read(pathArg);
+        console.log(result.content);
+    } catch (err) {
+        error(err.message);
+    }
 }
 
 async function cmdEdit(args) {
-  const [pathArg] = args;
-  if (!pathArg) error('path required\nUsage: note edit <path>');
+    const [pathArg] = args;
+    if (!pathArg) error('path required\nUsage: note edit <path>');
 
-  const fullPath = noteManager.getFullPath(pathArg);
-  await noteManager.ensureDir(fullPath);
+    const fullPath = noteManager.getFullPath(pathArg);
+    await noteManager.ensureDir(fullPath);
 
-  const editor = process.env.EDITOR || 'nano';
-  const child = spawn(editor, [fullPath], { stdio: 'inherit' });
+    const editor = process.env.EDITOR || 'nano';
+    const child = spawn(editor, [fullPath], { stdio: 'inherit' });
 
-  child.on('exit', (code) => {
-    if (code === 0) {
-      success(`Edited: ${pathArg}`);
-    }
-    process.exit(code);
-  });
+    child.on('exit', (code) => {
+        if (code === 0) {
+            success(`Edited: ${pathArg}`);
+        }
+        process.exit(code);
+    });
 }
 
 async function cmdRm(args) {
-  const pathArg = args[0];
-  const force = args.includes('-f');
+    const pathArg = args[0];
+    const force = args.includes('-f');
 
-  if (!pathArg) error('path required\nUsage: note rm <path> [-f]');
+    if (!pathArg) error('path required\nUsage: note rm <path> [-f]');
 
-  if (!force) {
-    const confirmed = await confirm(`Delete ${pathArg}?`);
-    if (!confirmed) {
-      console.log('Cancelled');
-      process.exit(0);
+    if (!force) {
+        const confirmed = await confirm(`Delete ${pathArg}?`);
+        if (!confirmed) {
+            console.log('Cancelled');
+            process.exit(0);
+        }
     }
-  }
 
-  try {
-    await noteManager.delete(pathArg);
-    success(`Deleted: ${pathArg}`);
-  } catch (err) {
-    error(err.message);
-  }
+    try {
+        await noteManager.delete(pathArg);
+        success(`Deleted: ${pathArg}`);
+    } catch (err) {
+        error(err.message);
+    }
 }
 
 async function cmdMv(args) {
-  const [from, to] = args;
-  if (!from || !to) error('source and destination required\nUsage: note mv <from> <to>');
+    const [from, to] = args;
+    if (!from || !to) error('source and destination required\nUsage: note mv <from> <to>');
 
-  try {
-    await noteManager.move(from, to);
-    success(`Moved: ${from} → ${to}`);
-  } catch (err) {
-    error(err.message);
-  }
+    try {
+        await noteManager.move(from, to);
+        success(`Moved: ${from} → ${to}`);
+    } catch (err) {
+        error(err.message);
+    }
 }
 
 async function cmdList(args) {
-  const flat = args.includes('--flat');
-  const recursive = args.includes('-r');
-  const pathArg = args.find(arg => !arg.startsWith('-')) || '.';
+    const flat = args.includes('--flat');
+    const recursive = args.includes('-r');
+    const pathArg = args.find(arg => !arg.startsWith('-')) || '.';
 
-  try {
-    const result = await noteManager.list(pathArg, recursive);
-    result.items.forEach(item => {
-      if (flat) {
-        if (item.type === 'file') {
-          console.log(item.path);
+    try {
+        const result = await noteManager.list(pathArg, recursive);
+
+        if (flat) {
+            result.items.forEach(item => {
+                if (item.type === 'file') {
+                    console.log(item.path);
+                }
+            });
+        } else {
+            const formatted = formatItems(result.items);
+            formatted.forEach(item => console.log(item.display));
         }
-      } else {
-        const icon = item.type === 'dir' ? '📁' : '📄';
+    } catch (err) {
+        error(err.message);
+    }
+}
+
+function formatItems(items, terminalWidth = process.stdout.columns || 120) {
+    // Unified display formatting for files, folders, and search results
+    if (items.length === 0) return [];
+
+    // Find max line number if we have matches
+    const maxLineNum = items
+        .filter(item => item.type === 'match' && item.lineNum)
+        .reduce((max, item) => Math.max(max, item.lineNum), 0);
+    const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
+
+    return items.map(item => {
+        const icon = item.type === 'dir' ? '📁' : (item.type === 'file' ? '📄' : '');
         const indent = '  '.repeat(item.indentLevel || 0);
         const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
-        console.log(`${indent}${prefix}${icon} ${item.name}`);
-      }
+
+        if (item.type === 'match') {
+            // Format search match line
+            const paddedLineNum = item.lineNum.toString().padStart(lineNumWidth, ' ');
+            const prefixWidth = indent.length + prefix.length + 6 + lineNumWidth; // "line:" = 5 chars + space
+            const availableWidth = terminalWidth - prefixWidth - 5;
+
+            let displayText = item.name.trim();
+            if (displayText.length > availableWidth) {
+                displayText = displayText.substring(0, availableWidth - 3) + '...';
+            }
+
+            return {
+                display: `${indent}${prefix}line:${paddedLineNum}  ${displayText}\t${item.path}\t${item.lineNum}`,
+                type: item.type,
+                path: item.path,
+                lineNum: item.lineNum
+            };
+        } else {
+            // Format file or folder
+            return {
+                display: `${indent}${prefix}${icon} ${item.name}`,
+                type: item.type,
+                path: item.path
+            };
+        }
     });
-  } catch (err) {
-    error(err.message);
-  }
 }
 
 async function cmdSearch(args) {
-  const term = args[0];
-  const listOnly = args.includes('-l');
+    const term = args[0];
+    const listOnly = args.includes('-l');
 
-  if (!term) error('search term required\nUsage: note search <term> [-l]');
+    if (!term) error('search term required\nUsage: note search <term> [-l]');
 
-  const result = await noteManager.search(term, listOnly);
+    const result = await noteManager.search(term, listOnly, true);
 
-  if (listOnly) {
-    result.files.forEach(file => console.log(file));
-  } else {
-    result.matches.forEach(match => console.log(match));
-  }
+    if (listOnly) {
+        result.files.forEach(file => console.log(file));
+    } else {
+        if (!result.items || result.items.length === 0) {
+            warning('No matches found');
+            return;
+        }
+
+        const formatted = formatItems(result.items);
+        formatted.forEach(item => {
+            // For terminal output, only show the display portion (before the tabs)
+            const displayOnly = item.display.split('\t')[0];
+            console.log(displayOnly);
+        });
+    }
 }
 
 async function cmdQuick(args) {
-  // If no args, try to read journal (pass null to quickJournal)
-  // If args provided, write to journal
-  let content;
-  if (args.length === 0) {
-    // No arguments - read today's journal
-    content = null;
-  } else {
-    // Arguments provided - write to journal
-    const argString = args.join(' ');
-    content = await getContent(argString);
-  }
-
-  const result = await noteManager.quickJournal(content);
-
-  if (content === null || content === '') {
-    if (result.content) {
-      console.log(result.content);
+    // If no args, try to read journal (pass null to quickJournal)
+    // If args provided, write to journal
+    let content;
+    if (args.length === 0) {
+        // No arguments - read today's journal
+        content = null;
     } else {
-      warning('No journal entry for today');
+        // Arguments provided - write to journal
+        const argString = args.join(' ');
+        content = await getContent(argString);
     }
-  } else {
-    success(`Added to journal: ${result.path.split('/')[1]} at ${result.time}`);
-  }
+
+    const result = await noteManager.quickJournal(content);
+
+    if (content === null || content === '') {
+        if (result.content) {
+            console.log(result.content);
+        } else {
+            warning('No journal entry for today');
+        }
+    } else {
+        success(`Added to journal: ${result.path.split('/')[1]} at ${result.time}`);
+    }
 }
 
 async function cmdInteractive() {
-  const { spawn } = require('child_process');
-  const pathModule = require('path');
+    const { spawn } = require('child_process');
+    const pathModule = require('path');
 
-  // Check if fzf is installed
-  try {
-    await new Promise((resolve, reject) => {
-      const check = spawn('which', ['fzf']);
-      check.on('exit', code => code === 0 ? resolve() : reject());
-    });
-  } catch (err) {
-    error('fzf is not installed. Please install it:\n  https://github.com/junegunn/fzf#installation');
-  }
-
-  let currentPath = '';
-
-  async function searchAll() {
-    // Get ALL items recursively
-    const result = await noteManager.list('.', true);
-
-    if (result.items.length === 0) {
-      warning('No notes found');
-      return { action: 'exit' };
+    // Check if fzf is installed
+    try {
+        await new Promise((resolve, reject) => {
+            const check = spawn('which', ['fzf']);
+            check.on('exit', code => code === 0 ? resolve() : reject());
+        });
+    } catch (err) {
+        error('fzf is not installed. Please install it:\n  https://github.com/junegunn/fzf#installation');
     }
 
-    // Build display list using same tree logic as cmdList
-    const displayItems = result.items.map(item => {
-      const icon = item.type === 'dir' ? '📁' : '📄';
-      const indent = '  '.repeat(item.indentLevel || 0);
-      const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
-      const display = `${indent}${prefix}${icon} ${item.name}`;
+    let currentPath = '';
 
-      return {
-        display: display,
-        path: item.path,
-        type: item.type
-      };
-    });
+    async function searchAll() {
+        // Get ALL items recursively
+        const result = await noteManager.list('.', true);
 
-    return new Promise((resolve) => {
-      const fzf = spawn('fzf', [
-        '--prompt=Search all files > ',
-        '--ansi',
-        '--layout=reverse',
-        '--with-nth=1',
-        '--delimiter=\t',
-        '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; fi',
-        '--preview-window=right:60%:wrap',
-        '--header=Enter: open | Esc: back to browse'
-      ], { stdio: ['pipe', 'pipe', 'inherit'] });
+        if (result.items.length === 0) {
+            warning('No notes found');
+            return { action: 'exit' };
+        }
 
-      // Write items
-      const fzfInput = displayItems.map(item => {
-        return `${item.display}\t${item.path}`;
-      }).join('\n');
+        // Build display list using same tree logic as cmdList
+        const displayItems = result.items.map(item => {
+            const icon = item.type === 'dir' ? '📁' : '📄';
+            const indent = '  '.repeat(item.indentLevel || 0);
+            const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
+            const display = `${indent}${prefix}${icon} ${item.name}`;
 
-      fzf.stdin.write(fzfInput);
-      fzf.stdin.end();
+            return {
+                display: display,
+                path: item.path,
+                type: item.type
+            };
+        });
 
-      let selected = '';
-      fzf.stdout.on('data', data => selected += data.toString());
+        return new Promise((resolve) => {
+            const fzf = spawn('fzf', [
+                '--prompt=Search all files > ',
+                '--ansi',
+                '--layout=reverse',
+                '--with-nth=1',
+                '--delimiter=\t',
+                '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; fi',
+                '--preview-window=right:60%:wrap',
+                '--header=Enter: open | Esc: back to browse'
+            ], { stdio: ['pipe', 'pipe', 'inherit'] });
 
-      fzf.on('exit', (code) => {
-        if (code === 130) {
-          // User cancelled - go back to browse
-          resolve({ action: 'browse' });
-        } else if (code === 0 && selected.trim()) {
-          const selectedLine = selected.trim();
-          const filePath = selectedLine.split('\t')[1];
-          const selectedItem = displayItems.find(item => item.path === filePath);
+            // Write items
+            const fzfInput = displayItems.map(item => {
+                return `${item.display}\t${item.path}`;
+            }).join('\n');
 
-          if (selectedItem) {
-            resolve({ action: 'select', item: selectedItem });
-          } else {
-            resolve({ action: 'browse' });
-          }
+            fzf.stdin.write(fzfInput);
+            fzf.stdin.end();
+
+            let selected = '';
+            fzf.stdout.on('data', data => selected += data.toString());
+
+            fzf.on('exit', (code) => {
+                if (code === 130) {
+                    // User cancelled - go back to browse
+                    resolve({ action: 'browse' });
+                } else if (code === 0 && selected.trim()) {
+                    const selectedLine = selected.trim();
+                    const filePath = selectedLine.split('\t')[1];
+                    const selectedItem = displayItems.find(item => item.path === filePath);
+
+                    if (selectedItem) {
+                        resolve({ action: 'select', item: selectedItem });
+                    } else {
+                        resolve({ action: 'browse' });
+                    }
+                } else {
+                    resolve({ action: 'browse' });
+                }
+            });
+        });
+    }
+
+    async function searchContent(initialQuery = '') {
+        // Create a helper script that uses the Node.js search and formatting
+        const helperScript = `#!/usr/bin/env node
+const NoteManager = require('/app/lib/NoteManager.js');
+const noteManager = new NoteManager('${DATA_DIR}', '${TIMEZONE}');
+
+const term = process.argv[2];
+if (!term) {
+  process.exit(0);
+}
+
+(async () => {
+  const result = await noteManager.search(term, false, false);
+  if (result.items && result.items.length > 0) {
+    const formatItems = ${formatItems.toString()};
+    const formatted = formatItems(result.items);
+    formatted.forEach(item => console.log(item.display));
+  }
+})();
+`;
+
+        // Write helper script to temp file
+        const helperPath = '/tmp/fzf-search-helper.js';
+        fs.writeFileSync(helperPath, helperScript, { mode: 0o755 });
+
+        return new Promise((resolve) => {
+            const fzf = spawn('fzf', [
+                '--prompt=Search content > ',
+                '--ansi',
+                '--layout=reverse',
+                '--disabled',
+                '--print-query',
+                '--query=' + initialQuery,
+                '--bind', `change:reload:${helperPath} {q} || true`,
+                '--bind', `start:reload:${helperPath} {q} || true`,
+                '--with-nth=1',
+                '--delimiter=\t',
+                '--preview', `
+          LINE="{3}"
+          FILE="{2}"
+          if [ -n "$LINE" ] && [ -n "$FILE" ] && [ "$LINE" != "{3}" ] && [ -f ${DATA_DIR}/$FILE.md ]; then
+            awk -v line="$LINE" 'NR>=line-3 && NR<=line+3 {
+              if(NR==line)
+                printf "\\033[1;33m>>> %4d: %s\\033[0m\\n", NR, $0
+              else
+                printf "    %4d: %s\\n", NR, $0
+            }' ${DATA_DIR}/$FILE.md
+          else
+            echo "Select a line to see preview"
+          fi
+        `,
+                '--preview-window=right:60%:wrap',
+                '--header=Enter: open at line | Esc: back to browse'
+            ], { stdio: ['pipe', 'pipe', 'inherit'] });
+
+            fzf.stdin.end();
+
+            let output = '';
+            fzf.stdout.on('data', data => output += data.toString());
+
+            fzf.on('exit', (code) => {
+                // Clean up helper script
+                try {
+                    fs.unlinkSync(helperPath);
+                } catch (e) {}
+
+                if (code === 130) {
+                    // User cancelled - go back to browse
+                    resolve({ action: 'browse', query: '' });
+                } else if (code === 0 && output.trim()) {
+                    const lines = output.trim().split('\n');
+                    // First line is the query (because of --print-query)
+                    const query = lines[0] || '';
+                    const selected = lines[1] || '';
+
+                    if (selected) {
+                        const parts = selected.split('\t');
+
+                        if (parts.length >= 3) {
+                            const displayText = parts[0];
+                            const filePath = parts[1];
+                            const lineNum = parts[2];
+
+                            // Check if this is a line selection (has line number)
+                            if (lineNum && lineNum.match(/^\d+$/)) {
+                                resolve({
+                                    action: 'open',
+                                    path: filePath,
+                                    lineNum: parseInt(lineNum),
+                                    query: query
+                                });
+                            } else {
+                                // Folder or file header selected
+                                resolve({ action: 'browse', query: '' });
+                            }
+                        } else {
+                            resolve({ action: 'browse', query: '' });
+                        }
+                    } else {
+                        resolve({ action: 'browse', query: '' });
+                    }
+                } else {
+                    resolve({ action: 'browse', query: '' });
+                }
+            });
+        });
+    }
+
+    async function browse(dirPath) {
+        // Get directory contents (non-recursive - local only)
+        const fullPath = dirPath || '.';
+        const result = await noteManager.list(fullPath, false);
+
+        const items = [];
+
+        // Add parent directory option if not at root
+        if (dirPath) {
+            items.push({ type: 'parent', display: '📁 ..', path: null });
+        }
+
+        // Add folders and files from current directory only
+        result.items.forEach(item => {
+            const itemName = pathModule.basename(item.path);
+            const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
+            const display = prefix + itemName;
+            items.push({
+                type: item.type,
+                path: item.path,
+                display: display
+            });
+        });
+
+        if (items.length === 0) {
+            warning('Empty directory');
+            return;
+        }
+
+        // Run fzf
+        return new Promise((resolve) => {
+            const fzf = spawn('fzf', [
+                '--prompt=' + (dirPath || 'root') + ' > ',
+                '--ansi',
+                '--layout=reverse',
+                '--with-nth=1',
+                '--delimiter=\t',
+                '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; elif [ -d ' + DATA_DIR + '/{2} ]; then node /app/bin/note ls {2}; fi',
+                '--preview-window=right:60%:wrap',
+                '--header=Enter: open/navigate | Ctrl-F: search files | Ctrl-G: search content | Esc: exit',
+                '--bind', 'ctrl-f:execute-silent(echo __SEARCH__ > /tmp/fzf-action)+abort',
+                '--bind', 'ctrl-g:execute-silent(echo __GREP__ > /tmp/fzf-action)+abort'
+            ], { stdio: ['pipe', 'pipe', 'inherit'] });
+
+            // Write items to fzf with tab-separated display and path
+            const fzfInput = items.map(item => {
+                if (item.type === 'parent') {
+                    return '📁 ..\t';
+                }
+                return `${item.display}\t${item.path}`;
+            }).join('\n');
+
+            fzf.stdin.write(fzfInput);
+            fzf.stdin.end();
+
+            let selected = '';
+            fzf.stdout.on('data', data => selected += data.toString());
+
+            fzf.on('exit', (code) => {
+                // Check if Ctrl-F or Ctrl-G was pressed
+                let action = null;
+                try {
+                    const marker = fs.readFileSync('/tmp/fzf-action', 'utf8').trim();
+                    if (marker === '__SEARCH__') {
+                        action = 'search';
+                    } else if (marker === '__GREP__') {
+                        action = 'grep';
+                    }
+                    fs.unlinkSync('/tmp/fzf-action');
+                } catch (e) {
+                    // Marker file doesn't exist
+                }
+
+                if (action === 'search') {
+                    resolve({ action: 'search' });
+                } else if (action === 'grep') {
+                    resolve({ action: 'grep' });
+                } else if (code === 130) {
+                    // User cancelled with Esc
+                    resolve({ action: 'exit' });
+                } else if (code === 0 && selected.trim()) {
+                    const selectedLine = selected.trim();
+                    const [display, itemPath] = selectedLine.split('\t');
+                    const selectedItem = items.find(item => item.display === display || (item.type === 'parent' && display === '📁 ..'));
+
+                    if (selectedItem) {
+                        resolve({ action: 'select', item: selectedItem });
+                    } else {
+                        resolve({ action: 'browse', path: dirPath });
+                    }
+                } else {
+                    resolve({ action: 'exit' });
+                }
+            });
+        });
+    }
+
+    async function openFile(filePath, lineNum = null) {
+        const fullPath = noteManager.getFullPath(filePath);
+        const editor = process.env.EDITOR || 'nano';
+
+        return new Promise((resolve) => {
+            const args = lineNum ? [`+${lineNum}`, fullPath] : [fullPath];
+            const edit = spawn(editor, args, { stdio: 'inherit' });
+            edit.on('exit', () => resolve());
+        });
+    }
+
+    // Main browse loop
+    while (true) {
+        const result = await browse(currentPath);
+
+        if (result.action === 'exit') {
+            process.exit(0);
+        } else if (result.action === 'search') {
+            // Switch to search all files mode
+            const searchResult = await searchAll();
+
+            if (searchResult.action === 'select') {
+                const item = searchResult.item;
+
+                if (item.type === 'dir') {
+                    // Navigate into the directory
+                    currentPath = item.path;
+                } else if (item.type === 'file') {
+                    // Open the file
+                    await openFile(item.path);
+                    // After editing, return to browse mode at current path
+                }
+            } else if (searchResult.action === 'exit') {
+                process.exit(0);
+            }
+            // If action is 'browse', just continue to current path
+        } else if (result.action === 'grep') {
+            // Switch to content search mode
+            let searchQuery = '';
+            while (true) {
+                const grepResult = await searchContent(searchQuery);
+
+                if (grepResult.action === 'open') {
+                    // Save the query to restore after editing
+                    searchQuery = grepResult.query || '';
+                    // Open file at specific line
+                    await openFile(grepResult.path, grepResult.lineNum);
+                    // After editing, loop back to search content again with same query
+                } else if (grepResult.action === 'exit') {
+                    process.exit(0);
+                } else {
+                    // action is 'browse' - return to browse mode
+                    break;
+                }
+            }
+        } else if (result.action === 'select') {
+            const item = result.item;
+
+            if (item.type === 'parent') {
+                // Go up one level
+                const parts = currentPath.split('/').filter(p => p);
+                parts.pop();
+                currentPath = parts.join('/');
+            } else if (item.type === 'dir') {
+                // Navigate into directory
+                currentPath = item.path;
+            } else if (item.type === 'file') {
+                // Open file in editor
+                await openFile(item.path);
+                // After editing, return to browser
+            }
         } else {
-          resolve({ action: 'browse' });
+            // Re-browse current directory
+            continue;
         }
-      });
-    });
-  }
-
-  async function browse(dirPath) {
-    // Get directory contents (non-recursive - local only)
-    const fullPath = dirPath || '.';
-    const result = await noteManager.list(fullPath, false);
-
-    const items = [];
-
-    // Add parent directory option if not at root
-    if (dirPath) {
-      items.push({ type: 'parent', display: '📁 ..', path: null });
     }
-
-    // Add folders and files from current directory only
-    result.items.forEach(item => {
-      const itemName = pathModule.basename(item.path);
-      const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
-      const display = prefix + itemName;
-      items.push({
-        type: item.type,
-        path: item.path,
-        display: display
-      });
-    });
-
-    if (items.length === 0) {
-      warning('Empty directory');
-      return;
-    }
-
-    // Run fzf
-    return new Promise((resolve) => {
-      const fzf = spawn('fzf', [
-        '--prompt=' + (dirPath || 'root') + ' > ',
-        '--ansi',
-        '--layout=reverse',
-        '--with-nth=1',
-        '--delimiter=\t',
-        '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; elif [ -d ' + DATA_DIR + '/{2} ]; then node /app/bin/note ls {2}; fi',
-        '--preview-window=right:60%:wrap',
-        '--header=Enter: open/navigate | Ctrl-F: search all files | Esc: exit',
-        '--bind', 'ctrl-f:execute-silent(echo __SEARCH__ > /tmp/fzf-action)+abort'
-      ], { stdio: ['pipe', 'pipe', 'inherit'] });
-
-      // Write items to fzf with tab-separated display and path
-      const fzfInput = items.map(item => {
-        if (item.type === 'parent') {
-          return '📁 ..\t';
-        }
-        return `${item.display}\t${item.path}`;
-      }).join('\n');
-
-      fzf.stdin.write(fzfInput);
-      fzf.stdin.end();
-
-      let selected = '';
-      fzf.stdout.on('data', data => selected += data.toString());
-
-      fzf.on('exit', (code) => {
-        // Check if Ctrl-F was pressed
-        let isSearch = false;
-        try {
-          const marker = fs.readFileSync('/tmp/fzf-action', 'utf8').trim();
-          if (marker === '__SEARCH__') {
-            isSearch = true;
-            fs.unlinkSync('/tmp/fzf-action');
-          }
-        } catch (e) {
-          // Marker file doesn't exist, not a search
-        }
-
-        if (isSearch) {
-          resolve({ action: 'search' });
-        } else if (code === 130) {
-          // User cancelled with Esc
-          resolve({ action: 'exit' });
-        } else if (code === 0 && selected.trim()) {
-          const selectedLine = selected.trim();
-          const [display, itemPath] = selectedLine.split('\t');
-          const selectedItem = items.find(item => item.display === display || (item.type === 'parent' && display === '📁 ..'));
-
-          if (selectedItem) {
-            resolve({ action: 'select', item: selectedItem });
-          } else {
-            resolve({ action: 'browse', path: dirPath });
-          }
-        } else {
-          resolve({ action: 'exit' });
-        }
-      });
-    });
-  }
-
-  async function openFile(filePath) {
-    const fullPath = noteManager.getFullPath(filePath);
-    const editor = process.env.EDITOR || 'nano';
-
-    return new Promise((resolve) => {
-      const edit = spawn(editor, [fullPath], { stdio: 'inherit' });
-      edit.on('exit', () => resolve());
-    });
-  }
-
-  // Main browse loop
-  while (true) {
-    const result = await browse(currentPath);
-
-    if (result.action === 'exit') {
-      process.exit(0);
-    } else if (result.action === 'search') {
-      // Switch to search all files mode
-      const searchResult = await searchAll();
-
-      if (searchResult.action === 'select') {
-        const item = searchResult.item;
-
-        if (item.type === 'dir') {
-          // Navigate into the directory
-          currentPath = item.path;
-        } else if (item.type === 'file') {
-          // Open the file
-          await openFile(item.path);
-          // After editing, return to browse mode at current path
-        }
-      } else if (searchResult.action === 'exit') {
-        process.exit(0);
-      }
-      // If action is 'browse', just continue to current path
-    } else if (result.action === 'select') {
-      const item = result.item;
-
-      if (item.type === 'parent') {
-        // Go up one level
-        const parts = currentPath.split('/').filter(p => p);
-        parts.pop();
-        currentPath = parts.join('/');
-      } else if (item.type === 'dir') {
-        // Navigate into directory
-        currentPath = item.path;
-      } else if (item.type === 'file') {
-        // Open file in editor
-        await openFile(item.path);
-        // After editing, return to browser
-      }
-    } else {
-      // Re-browse current directory
-      continue;
-    }
-  }
 }
 
 async function cmdInstall() {
-  const homeDir = process.env.HOME;
-  const bashProfile = fs.existsSync(path.join(homeDir, '.bash_profile'))
-    ? path.join(homeDir, '.bash_profile')
-    : path.join(homeDir, '.bashrc');
+    const homeDir = process.env.HOME;
+    const bashProfile = fs.existsSync(path.join(homeDir, '.bash_profile'))
+        ? path.join(homeDir, '.bash_profile')
+        : path.join(homeDir, '.bashrc');
 
-  try {
-    const content = fs.readFileSync(bashProfile, 'utf8');
-    if (content.includes('alias note=')) {
-      warning(`Alias already exists in ${bashProfile}`);
-      return;
+    try {
+        const content = fs.readFileSync(bashProfile, 'utf8');
+        if (content.includes('alias note=')) {
+            warning(`Alias already exists in ${bashProfile}`);
+            return;
+        }
+    } catch (err) {
+        // File doesn't exist, will be created
     }
-  } catch (err) {
-    // File doesn't exist, will be created
-  }
 
-  const aliasLine = `alias note='docker exec -it notes node /app/bin/note'`;
+    const aliasLine = `alias note='docker exec -it notes node /app/bin/note'`;
 
-  fs.appendFileSync(bashProfile, `\n# Note CLI\n${aliasLine}\n`);
+    fs.appendFileSync(bashProfile, `\n# Note CLI\n${aliasLine}\n`);
 
-  success('Alias installed!');
-  console.log(`Run: source ${bashProfile}`);
-  console.log('Or restart your terminal');
+    success('Alias installed!');
+    console.log(`Run: source ${bashProfile}`);
+    console.log('Or restart your terminal');
 }
 
 function showCommands() {
-  console.log(`Note CLI Commands:
+    console.log(`Note CLI Commands:
   write, new, append, read, cat, edit, rm, mv, list, ls, search, -q, -i, install
 
 Run 'note --help' for detailed usage`);
 }
 
 function showHelp() {
-  console.log(`Note CLI - Markdown note management
+    console.log(`Note CLI - Markdown note management
 
 Usage: note [command] [options]
 
@@ -540,67 +725,67 @@ Examples:
 }
 
 async function main() {
-  const args = process.argv.slice(2);
+    const args = process.argv.slice(2);
 
-  if (args.length === 0) {
-    showCommands();
-    process.exit(0);
-  }
-
-  const command = args[0];
-  const commandArgs = args.slice(1);
-
-  try {
-    switch (command) {
-      case 'write':
-        await cmdWrite(commandArgs);
-        break;
-      case 'new':
-        await cmdNew(commandArgs);
-        break;
-      case 'append':
-        await cmdAppend(commandArgs);
-        break;
-      case 'read':
-      case 'cat':
-        await cmdRead(commandArgs);
-        break;
-      case 'edit':
-        await cmdEdit(commandArgs);
-        break;
-      case 'rm':
-        await cmdRm(commandArgs);
-        break;
-      case 'mv':
-        await cmdMv(commandArgs);
-        break;
-      case 'list':
-      case 'ls':
-        await cmdList(commandArgs);
-        break;
-      case 'search':
-        await cmdSearch(commandArgs);
-        break;
-      case '-q':
-        await cmdQuick(commandArgs);
-        break;
-      case '-i':
-        await cmdInteractive();
-        break;
-      case 'install':
-        await cmdInstall();
-        break;
-      case '--help':
-      case '-h':
-        showHelp();
-        break;
-      default:
-        error(`Unknown command: ${command}`);
+    if (args.length === 0) {
         showCommands();
+        process.exit(0);
     }
-  } catch (err) {
-    error(err.message);
-  }
+
+    const command = args[0];
+    const commandArgs = args.slice(1);
+
+    try {
+        switch (command) {
+            case 'write':
+                await cmdWrite(commandArgs);
+                break;
+            case 'new':
+                await cmdNew(commandArgs);
+                break;
+            case 'append':
+                await cmdAppend(commandArgs);
+                break;
+            case 'read':
+            case 'cat':
+                await cmdRead(commandArgs);
+                break;
+            case 'edit':
+                await cmdEdit(commandArgs);
+                break;
+            case 'rm':
+                await cmdRm(commandArgs);
+                break;
+            case 'mv':
+                await cmdMv(commandArgs);
+                break;
+            case 'list':
+            case 'ls':
+                await cmdList(commandArgs);
+                break;
+            case 'search':
+                await cmdSearch(commandArgs);
+                break;
+            case '-q':
+                await cmdQuick(commandArgs);
+                break;
+            case '-i':
+                await cmdInteractive();
+                break;
+            case 'install':
+                await cmdInstall();
+                break;
+            case '--help':
+            case '-h':
+                showHelp();
+                break;
+            default:
+                error(`Unknown command: ${command}`);
+                showCommands();
+        }
+    } catch (err) {
+        error(err.message);
+    }
 }
 
 main();
