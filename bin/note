@@ -290,7 +290,7 @@ async function cmdInteractive() {
         '--layout=reverse',
         '--with-nth=1',
         '--delimiter=\t',
-        '--preview', 'test -f ' + DATA_DIR + '/{2}.md && cat ' + DATA_DIR + '/{2}.md || true',
+        '--preview', 'if [ -f ' + DATA_DIR + '/{2}.md ]; then cat ' + DATA_DIR + '/{2}.md; elif [ -d ' + DATA_DIR + '/{2} ]; then node /app/bin/note ls {2}; fi',
         '--preview-window=right:60%:wrap',
         '--header=Enter: open/navigate | Esc: exit'
       ], { stdio: ['pipe', 'pipe', 'inherit'] });
