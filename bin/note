@@ -168,16 +168,16 @@ async function cmdList(args) {
     const pathArg = args.find(arg => !arg.startsWith('-')) || '.';
 
     try {
-        const result = await noteManager.list(pathArg, recursive);
+        const items = await noteManager.list(pathArg, recursive);
 
         if (flat) {
-            result.items.forEach(item => {
+            items.forEach(item => {
                 if (item.type === 'file') {
                     console.log(item.path);
                 }
             });
         } else {
-            const formatted = formatItems(result.items);
+            const formatted = formatItems(items);
             formatted.forEach(item => {
                 // Strip tabs for terminal output
                 const displayOnly = item.display.split('\t')[0];
@@ -243,12 +243,12 @@ async function cmdSearch(args) {
     if (listOnly) {
         result.files.forEach(file => console.log(file));
     } else {
-        if (!result.items || result.items.length === 0) {
+        if (!result || result.length === 0) {
             warning('No matches found');
             return;
         }
 
-        const formatted = formatItems(result.items);
+        const formatted = formatItems(result);
         formatted.forEach(item => {
             // For terminal output, only show the display portion (before the tabs)
             const displayOnly = item.display.split('\t')[0];
@@ -301,15 +301,15 @@ async function cmdInteractive() {
 
     async function searchAll() {
         // Get ALL items recursively
-        const result = await noteManager.list('.', true);
+        const items = await noteManager.list('.', true);
 
-        if (result.items.length === 0) {
+        if (items.length === 0) {
             warning('No notes found');
             return { action: 'exit' };
         }
 
         // Build display list using same tree logic as cmdList
-        const displayItems = result.items.map(item => {
+        const displayItems = items.map(item => {
             const icon = item.type === 'dir' ? '📁' : '📄';
             const indent = '  '.repeat(item.indentLevel || 0);
             const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
@@ -378,13 +378,13 @@ if (!term) {
 }
 
 (async () => {
-  const result = await noteManager.search(term, false, false);
-  if (result.items && result.items.length > 0) {
+  const items = await noteManager.search(term, false, false);
+  if (items && items.length > 0) {
     // Inline formatting logic
-    const maxLineNum = result.items.filter(item => item.type === 'match' && item.lineNum).reduce((max, item) => Math.max(max, item.lineNum), 0);
+    const maxLineNum = items.filter(item => item.type === 'match' && item.lineNum).reduce((max, item) => Math.max(max, item.lineNum), 0);
     const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
 
-    result.items.forEach(item => {
+    items.forEach(item => {
       const icon = item.type === 'dir' ? '📁' : (item.type === 'file' ? '📄' : '');
       const indent = '  '.repeat(item.indentLevel || 0);
       const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
@@ -490,7 +490,7 @@ if (!term) {
     async function browse(dirPath) {
         // Get directory contents (non-recursive - local only)
         const fullPath = dirPath || '.';
-        const result = await noteManager.list(fullPath, false);
+        const listItems = await noteManager.list(fullPath, false);
 
         const items = [];
 
@@ -500,7 +500,7 @@ if (!term) {
         }
 
         // Add folders and files from current directory only
-        result.items.forEach(item => {
+        listItems.forEach(item => {
             const itemName = pathModule.basename(item.path);
             const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
             const display = prefix + itemName;
