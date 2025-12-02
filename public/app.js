@@ -17,6 +17,7 @@ class NotesApp {
         this.fileExplorer = document.getElementById('file-explorer');
         this.markdownEditor = document.getElementById('markdown-editor');
         this.markdownPreview = document.getElementById('markdown-preview');
+        this.previewPane = document.querySelector('.preview-pane');
         this.currentFilePath = document.getElementById('current-file-path');
         this.deleteBtn = document.getElementById('delete-btn');
         this.renameBtn = document.getElementById('rename-btn');
@@ -38,6 +39,17 @@ class NotesApp {
         });
 
         this.markdownEditor.addEventListener('keydown', (e) => {
+            // Tab - Insert tab character
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.markdownEditor.selectionStart;
+                const end = this.markdownEditor.selectionEnd;
+                const value = this.markdownEditor.value;
+                this.markdownEditor.value = value.substring(0, start) + '\t' + value.substring(end);
+                this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + 1;
+                this.onEditorChange();
+            }
+
             // Ctrl+S - Save with notification
             if (e.ctrlKey && (e.key.toLowerCase() === 's' || e.code === 'KeyS')) {
                 e.preventDefault();
@@ -101,6 +113,23 @@ class NotesApp {
 
         // Rename button event
         this.renameBtn.addEventListener('click', () => this.renameCurrentFile());
+
+        // Text selection for link toolbar
+        this.markdownEditor.addEventListener('mouseup', () => this.handleTextSelection());
+        this.markdownEditor.addEventListener('keyup', () => this.handleTextSelection());
+
+        // Hide toolbar when clicking outside
+        document.addEventListener('click', (e) => {
+            if (this.linkToolbar && !this.linkToolbar.contains(e.target) && e.target !== this.markdownEditor) {
+                this.hideLinkToolbar();
+            }
+        });
+
+        // Scroll synchronization
+        this.markdownEditor.addEventListener('scroll', () => this.syncScroll());
+
+        // Intercept link clicks in preview for relative paths
+        this.markdownPreview.addEventListener('click', (e) => this.handlePreviewLinkClick(e));
     }
 
     async loadFileStructure() {
@@ -784,6 +813,142 @@ class NotesApp {
 
         textarea.focus();
         this.onEditorChange();
+    }
+
+    handleTextSelection() {
+        const selectedText = this.markdownEditor.value.substring(
+            this.markdownEditor.selectionStart,
+            this.markdownEditor.selectionEnd
+        );
+
+        if (selectedText.length > 0) {
+            this.showLinkToolbar();
+        } else {
+            this.hideLinkToolbar();
+        }
+    }
+
+    showLinkToolbar() {
+        if (!this.linkToolbar) {
+            this.linkToolbar = document.createElement('div');
+            this.linkToolbar.className = 'link-toolbar';
+            this.linkToolbar.innerHTML = '<button class="link-toolbar-btn" title="Insert Link">🔗 Link</button>';
+            document.body.appendChild(this.linkToolbar);
+
+            const linkBtn = this.linkToolbar.querySelector('.link-toolbar-btn');
+            linkBtn.addEventListener('click', () => this.insertLink());
+        }
+
+        const textarea = this.markdownEditor;
+        const rect = textarea.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        this.linkToolbar.style.display = 'block';
+        this.linkToolbar.style.position = 'absolute';
+        this.linkToolbar.style.top = (rect.top + scrollTop - 40) + 'px';
+        this.linkToolbar.style.left = (rect.left + (rect.width / 2) - 50) + 'px';
+    }
+
+    hideLinkToolbar() {
+        if (this.linkToolbar) {
+            this.linkToolbar.style.display = 'none';
+        }
+    }
+
+    insertLink() {
+        const start = this.markdownEditor.selectionStart;
+        const end = this.markdownEditor.selectionEnd;
+        const value = this.markdownEditor.value;
+        const selectedText = value.substring(start, end);
+
+        if (!selectedText) {
+            this.hideLinkToolbar();
+            return;
+        }
+
+        const url = prompt('Enter URL:', 'https://');
+        if (!url) {
+            this.hideLinkToolbar();
+            return;
+        }
+
+        const markdownLink = `[${selectedText}](${url})`;
+        this.markdownEditor.value = value.substring(0, start) + markdownLink + value.substring(end);
+
+        this.markdownEditor.selectionStart = start;
+        this.markdownEditor.selectionEnd = start + markdownLink.length;
+
+        this.markdownEditor.focus();
+        this.onEditorChange();
+        this.hideLinkToolbar();
+    }
+
+    syncScroll() {
+        const editorScrollTop = this.markdownEditor.scrollTop;
+        const editorScrollHeight = this.markdownEditor.scrollHeight - this.markdownEditor.clientHeight;
+
+        if (editorScrollHeight > 0) {
+            const scrollPercentage = editorScrollTop / editorScrollHeight;
+            const previewScrollHeight = this.previewPane.scrollHeight - this.previewPane.clientHeight;
+            this.previewPane.scrollTop = scrollPercentage * previewScrollHeight;
+        }
+    }
+
+    async handlePreviewLinkClick(e) {
+        const target = e.target.closest('a');
+        if (!target) return;
+
+        const href = target.getAttribute('href');
+        if (!href) return;
+
+        if (this.isRelativePath(href)) {
+            e.preventDefault();
+
+            const notePath = this.resolveRelativePath(href);
+
+            try {
+                const response = await fetch(`/api/notes/${notePath}`);
+                if (response.ok) {
+                    await this.openFile(notePath);
+                } else {
+                    this.showError(`Note not found: ${notePath}`);
+                }
+            } catch (error) {
+                console.error('Error opening linked note:', error);
+                this.showError(`Failed to open note: ${notePath}`);
+            }
+        }
+    }
+
+    isRelativePath(href) {
+        return !href.match(/^(https?:\/\/|mailto:|tel:|#)/i);
+    }
+
+    resolveRelativePath(href) {
+        let notePath = href;
+
+        if (notePath.startsWith('./')) {
+            notePath = notePath.substring(2);
+        }
+
+        if (notePath.startsWith('/')) {
+            notePath = notePath.substring(1);
+        }
+
+        if (this.currentFile && notePath.startsWith('../')) {
+            const currentDir = this.currentFile.substring(0, this.currentFile.lastIndexOf('/'));
+            const parentDir = currentDir.substring(0, currentDir.lastIndexOf('/'));
+            notePath = parentDir ? `${parentDir}/${notePath.substring(3)}` : notePath.substring(3);
+        } else if (this.currentFile && !notePath.includes('/')) {
+            const currentDir = this.currentFile.substring(0, this.currentFile.lastIndexOf('/'));
+            notePath = currentDir ? `${currentDir}/${notePath}` : notePath;
+        }
+
+        if (!notePath.endsWith('.md')) {
+            notePath += '.md';
+        }
+
+        return notePath;
     }
 
     async loadWelcomeContent() {

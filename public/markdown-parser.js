@@ -129,7 +129,7 @@ class MarkdownParser {
     parseCodeBlocks(html) {
         // Handle fenced code blocks
         html = html.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-            return `<pre><code${lang ? ` class="language-${lang}"` : ''}>${code.trim()}</code></pre>`;
+            return `<pre><code${lang ? ` class="language-${lang}"` : ''}>${this.escapeHtml(code.trim())}</code></pre>`;
         });
 
         return html;

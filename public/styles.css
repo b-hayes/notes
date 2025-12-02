@@ -690,3 +690,29 @@ body {
         padding: 16px;
     }
 }
+
+/* Link Toolbar */
+.link-toolbar {
+    display: none;
+    background: var(--bg-editor-header);
+    border: 1px solid var(--border-editor);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    z-index: 1000;
+}
+
+.link-toolbar-btn {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.link-toolbar-btn:hover {
+    background: var(--accent-hover);
+}
