@@ -39,14 +39,74 @@ class NotesApp {
         });
 
         this.markdownEditor.addEventListener('keydown', (e) => {
-            // Tab - Insert tab character
+            // Tab - Insert spaces to next tab stop (every 4 columns)
+            // Shift+Tab - Remove spaces to previous tab stop
             if (e.key === 'Tab') {
                 e.preventDefault();
                 const start = this.markdownEditor.selectionStart;
                 const end = this.markdownEditor.selectionEnd;
                 const value = this.markdownEditor.value;
-                this.markdownEditor.value = value.substring(0, start) + '\t' + value.substring(end);
-                this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + 1;
+
+                if (e.shiftKey) {
+                    // Shift+Tab - Remove up to 4 spaces from start of line
+                    const lastNewline = value.lastIndexOf('\n', start - 1);
+                    const lineStart = lastNewline + 1;
+                    const lineEnd = value.indexOf('\n', start);
+                    const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
+                    const currentLine = value.substring(lineStart, actualLineEnd);
+
+                    // Count leading spaces (remove up to 4)
+                    let spacesToRemove = 0;
+                    for (let i = 0; i < Math.min(4, currentLine.length); i++) {
+                        if (currentLine[i] === ' ') {
+                            spacesToRemove++;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (spacesToRemove > 0) {
+                        this.markdownEditor.value = value.substring(0, lineStart) + value.substring(lineStart + spacesToRemove);
+                        // Adjust cursor position
+                        const newStart = Math.max(lineStart, start - spacesToRemove);
+                        const newEnd = Math.max(lineStart, end - spacesToRemove);
+                        this.markdownEditor.selectionStart = newStart;
+                        this.markdownEditor.selectionEnd = newEnd;
+                        this.onEditorChange();
+                    }
+                } else {
+                    // Tab - Insert spaces to next tab stop
+                    const lastNewline = value.lastIndexOf('\n', start - 1);
+                    const currentColumn = start - (lastNewline + 1);
+
+                    // Calculate spaces needed to reach next tab stop (4, 8, 12, etc.)
+                    const spacesToInsert = 4 - (currentColumn % 4);
+                    const spaces = ' '.repeat(spacesToInsert);
+
+                    this.markdownEditor.value = value.substring(0, start) + spaces + value.substring(end);
+                    this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + spacesToInsert;
+                    this.onEditorChange();
+                }
+            }
+
+            // Enter - Copy indentation from current line
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const start = this.markdownEditor.selectionStart;
+                const end = this.markdownEditor.selectionEnd;
+                const value = this.markdownEditor.value;
+
+                // Find start of current line
+                const lastNewline = value.lastIndexOf('\n', start - 1);
+                const lineStart = lastNewline + 1;
+                const currentLine = value.substring(lineStart, value.indexOf('\n', start) === -1 ? value.length : value.indexOf('\n', start));
+
+                // Count leading spaces
+                const leadingSpaces = currentLine.match(/^ */)[0].length;
+                const indent = ' '.repeat(leadingSpaces);
+
+                this.markdownEditor.value = value.substring(0, start) + '\n' + indent + value.substring(end);
+                this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + 1 + leadingSpaces;
                 this.onEditorChange();
             }
 
