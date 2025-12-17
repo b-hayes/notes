@@ -278,8 +278,8 @@ class NotesApp {
                 container.appendChild(element);
                 container.appendChild(childrenContainer);
 
-                if (item.children && item.children.length > 0) {
-                    this.renderFileStructure(item.children, childrenContainer, level + 1);
+                if (item.content && item.content.length > 0) {
+                    this.renderFileStructure(item.content, childrenContainer, level + 1);
                 }
             } else {
                 element.className = 'file-item';

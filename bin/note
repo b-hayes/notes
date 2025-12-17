@@ -169,15 +169,16 @@ async function cmdList(args) {
 
     try {
         const items = await noteManager.list(pathArg, recursive);
+        const flatItems = flattenItems(items);
 
         if (flat) {
-            items.forEach(item => {
+            flatItems.forEach(item => {
                 if (item.type === 'file') {
                     console.log(item.path);
                 }
             });
         } else {
-            const formatted = formatItems(items);
+            const formatted = formatItems(flatItems);
             formatted.forEach(item => {
                 // Strip tabs for terminal output
                 const displayOnly = item.display.split('\t')[0];
@@ -187,6 +188,20 @@ async function cmdList(args) {
     } catch (err) {
         error(err.message);
     }
+}
+
+function flattenItems(items, depth = 0) {
+    const result = [];
+    items.forEach((item, index) => {
+        const isLast = index === items.length - 1;
+        const flatItem = { ...item, indentLevel: depth, isLastChild: isLast };
+        result.push(flatItem);
+
+        if (item.type === 'folder' && item.content) {
+            result.push(...flattenItems(item.content, depth + 1));
+        }
+    });
+    return result;
 }
 
 function formatItems(items, terminalWidth = process.stdout.columns || 120) {
@@ -200,7 +215,7 @@ function formatItems(items, terminalWidth = process.stdout.columns || 120) {
     const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
 
     return items.map(item => {
-        const icon = item.type === 'dir' ? '📁' : (item.type === 'file' ? '📄' : '');
+        const icon = item.type === 'folder' ? '📁' : (item.type === 'file' ? '📄' : '');
         const indent = '  '.repeat(item.indentLevel || 0);
         const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
 
@@ -310,7 +325,7 @@ async function cmdInteractive() {
 
         // Build display list using same tree logic as cmdList
         const displayItems = items.map(item => {
-            const icon = item.type === 'dir' ? '📁' : '📄';
+            const icon = item.type === 'folder' ? '📁' : '📄';
             const indent = '  '.repeat(item.indentLevel || 0);
             const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
             const display = `${indent}${prefix}${icon} ${item.name}`;
@@ -385,7 +400,7 @@ if (!term) {
     const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
 
     items.forEach(item => {
-      const icon = item.type === 'dir' ? '📁' : (item.type === 'file' ? '📄' : '');
+      const icon = item.type === 'folder' ? '📁' : (item.type === 'file' ? '📄' : '');
       const indent = '  '.repeat(item.indentLevel || 0);
       const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
 
@@ -502,7 +517,7 @@ if (!term) {
         // Add folders and files from current directory only
         listItems.forEach(item => {
             const itemName = pathModule.basename(item.path);
-            const prefix = item.type === 'dir' ? '📁 ' : '📄 ';
+            const prefix = item.type === 'folder' ? '📁 ' : '📄 ';
             const display = prefix + itemName;
             items.push({
                 type: item.type,
@@ -608,7 +623,7 @@ if (!term) {
             if (searchResult.action === 'select') {
                 const item = searchResult.item;
 
-                if (item.type === 'dir') {
+                if (item.type === 'folder') {
                     // Navigate into the directory
                     currentPath = item.path;
                 } else if (item.type === 'file') {
@@ -647,7 +662,7 @@ if (!term) {
                 const parts = currentPath.split('/').filter(p => p);
                 parts.pop();
                 currentPath = parts.join('/');
-            } else if (item.type === 'dir') {
+            } else if (item.type === 'folder') {
                 // Navigate into directory
                 currentPath = item.path;
             } else if (item.type === 'file') {
