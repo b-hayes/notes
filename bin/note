@@ -386,43 +386,6 @@ async function cmdInteractive() {
     }
 
     async function searchContent(initialQuery = '') {
-        // Create a helper script that uses the Node.js search and formatting
-        const helperScript = `#!/usr/bin/env node
-const NoteManager = require('/app/lib/NoteManager.js');
-const noteManager = new NoteManager('${DATA_DIR}', '${TIMEZONE}');
-
-const term = process.argv[2];
-if (!term) {
-  process.exit(0);
-}
-
-(async () => {
-  const items = await noteManager.search(term, false, false);
-  if (items && items.length > 0) {
-    // Inline formatting logic
-    const maxLineNum = items.filter(item => item.type === 'match' && item.lineNum).reduce((max, item) => Math.max(max, item.lineNum), 0);
-    const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
-
-    items.forEach(item => {
-      const icon = item.type === 'folder' ? '📁' : (item.type === 'file' ? '📄' : '');
-      const indent = '  '.repeat(item.indentLevel || 0);
-      const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
-
-      if (item.type === 'match') {
-        const paddedLineNum = item.lineNum.toString().padStart(lineNumWidth, ' ');
-        console.log(\`\${indent}\${prefix}line:\${paddedLineNum}  \${item.name}\\t\${item.path}\\t\${item.lineNum}\`);
-      } else {
-        console.log(\`\${indent}\${prefix}\${icon} \${item.name}\\t\\t\`);
-      }
-    });
-  }
-})();
-`;
-
-        // Write helper script to temp file
-        const helperPath = '/tmp/fzf-search-helper.js';
-        fs.writeFileSync(helperPath, helperScript, { mode: 0o755 });
-
         return new Promise((resolve) => {
             const fzf = spawn('fzf', [
                 '--prompt=Search content > ',
@@ -431,8 +394,8 @@ if (!term) {
                 '--disabled',
                 '--print-query',
                 '--query=' + initialQuery,
-                '--bind', `change:reload:${helperPath} {q} || true`,
-                '--bind', `start:reload:${helperPath} {q} || true`,
+                '--bind', `change:reload:node /app/bin/note search {q} || true`,
+                '--bind', `start:reload:node /app/bin/note search {q} || true`,
                 '--with-nth=1',
                 '--delimiter=\t',
                 '--preview', `
@@ -459,10 +422,6 @@ if (!term) {
             fzf.stdout.on('data', data => output += data.toString());
 
             fzf.on('exit', (code) => {
-                // Clean up helper script
-                try {
-                    fs.unlinkSync(helperPath);
-                } catch (e) {}
 
                 if (code === 130) {
                     // User cancelled - go back to browse
