@@ -169,16 +169,24 @@ async function cmdList(args) {
 
     try {
         const items = await noteManager.list(pathArg, recursive);
-        const flatItems = flattenItems(items);
 
         if (flat) {
-            flatItems.forEach(item => {
-                if (item.type === 'file') {
-                    console.log(item.path);
-                }
-            });
+            // Flatten for simple path output
+            const flatPaths = [];
+            function extractPaths(items) {
+                items.forEach(item => {
+                    if (item.type === 'file') {
+                        flatPaths.push(item.path);
+                    }
+                    if (item.type === 'folder' && item.content) {
+                        extractPaths(item.content);
+                    }
+                });
+            }
+            extractPaths(items);
+            flatPaths.forEach(p => console.log(p));
         } else {
-            const formatted = formatItems(flatItems);
+            const formatted = formatItems(items);
             formatted.forEach(item => {
                 // Strip tabs for terminal output
                 const displayOnly = item.display.split('\t')[0];
@@ -190,23 +198,11 @@ async function cmdList(args) {
     }
 }
 
-function flattenItems(items, depth = 0) {
-    const result = [];
-    items.forEach((item, index) => {
-        const isLast = index === items.length - 1;
-        const flatItem = { ...item, indentLevel: depth, isLastChild: isLast };
-        result.push(flatItem);
-
-        if (item.type === 'folder' && item.content) {
-            result.push(...flattenItems(item.content, depth + 1));
-        }
-    });
-    return result;
-}
-
-function formatItems(items, terminalWidth = process.stdout.columns || 120) {
+function formatItems(items, terminalWidth = process.stdout.columns || 120, depth = 0) {
     // Unified display formatting for files, folders, and search results
     if (items.length === 0) return [];
+
+    const result = [];
 
     // Find max line number if we have matches
     const maxLineNum = items
@@ -214,10 +210,11 @@ function formatItems(items, terminalWidth = process.stdout.columns || 120) {
         .reduce((max, item) => Math.max(max, item.lineNum), 0);
     const lineNumWidth = maxLineNum > 0 ? maxLineNum.toString().length : 0;
 
-    return items.map(item => {
+    items.forEach((item, index) => {
+        const isLast = index === items.length - 1;
         const icon = item.type === 'folder' ? '📁' : (item.type === 'file' ? '📄' : '');
-        const indent = '  '.repeat(item.indentLevel || 0);
-        const prefix = item.indentLevel > 0 ? (item.isLastChild ? '└─ ' : '├─ ') : '';
+        const indent = '  '.repeat(depth);
+        const prefix = depth > 0 ? (isLast ? '└─ ' : '├─ ') : '';
 
         if (item.type === 'match') {
             // Format search match line
@@ -230,21 +227,28 @@ function formatItems(items, terminalWidth = process.stdout.columns || 120) {
                 displayText = displayText.substring(0, availableWidth - 3) + '...';
             }
 
-            return {
+            result.push({
                 display: `${indent}${prefix}line:${paddedLineNum}  ${displayText}\t${item.path}\t${item.lineNum}`,
                 type: item.type,
                 path: item.path,
                 lineNum: item.lineNum
-            };
+            });
         } else {
             // Format file or folder (add empty tabs for fzf compatibility)
-            return {
+            result.push({
                 display: `${indent}${prefix}${icon} ${item.name}\t\t`,
                 type: item.type,
                 path: item.path
-            };
+            });
+
+            // Recursively format nested folder content
+            if (item.type === 'folder' && item.content && item.content.length > 0) {
+                result.push(...formatItems(item.content, terminalWidth, depth + 1));
+            }
         }
     });
+
+    return result;
 }
 
 async function cmdSearch(args) {
