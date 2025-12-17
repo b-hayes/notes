@@ -302,6 +302,59 @@ body {
     background: var(--accent-hover);
 }
 
+.quick-note-container {
+    background: var(--bg-editor-header);
+    border-bottom: 1px solid var(--border-editor);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quick-note-container label {
+    font-size: 14px;
+    color: var(--text-body);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.quick-note-container input {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid var(--border-editor);
+    border-radius: 4px;
+    font-size: 14px;
+    background: var(--bg-editor-input);
+    color: var(--text-body);
+    transition: border-color 0.2s;
+}
+
+.quick-note-container input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.quick-note-container button {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.quick-note-container button:hover {
+    background: var(--accent-hover);
+}
+
+.quick-note-container button:disabled {
+    background: var(--text-disabled);
+    cursor: not-allowed;
+}
+
 .editor-container {
     flex: 1;
     overflow: hidden;

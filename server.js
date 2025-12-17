@@ -2,10 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs-extra');
 const path = require('path');
+const NoteManager = require('./lib/NoteManager');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
+const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+const noteManager = new NoteManager(DATA_DIR, TIMEZONE);
 
 // Middleware
 app.use(cors());
@@ -134,6 +137,26 @@ app.post('/api/move/*', async (req, res) => {
     await fs.move(sourceFullPath, destFullPath);
 
     res.json({ success: true, from: sourcePath, to: destinationPath });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Quick journal entry
+app.post('/api/quick-note', async (req, res) => {
+  try {
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Content required' });
+    }
+
+    const result = await noteManager.quickJournal(content.trim());
+    const pathWithExtension = result.path.endsWith('.md') ? result.path : `${result.path}.md`;
+    res.json({
+      success: true,
+      path: pathWithExtension
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

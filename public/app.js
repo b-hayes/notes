@@ -25,6 +25,10 @@ class NotesApp {
         this.newFolderBtn = document.getElementById('new-folder-btn');
         this.helpBtn = document.getElementById('help-btn');
 
+        // Quick note elements
+        this.quickNoteInput = document.getElementById('quick-note-input');
+        this.quickNoteBtn = document.getElementById('quick-note-btn');
+
         // Mobile elements
         this.sidebar = document.getElementById('sidebar');
         this.sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -152,6 +156,15 @@ class NotesApp {
         this.newNoteBtn.addEventListener('click', () => this.createNewNote());
         this.newFolderBtn.addEventListener('click', () => this.createNewFolder());
         this.helpBtn.addEventListener('click', () => this.showHelp());
+
+        // Quick note events
+        this.quickNoteInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.submitQuickNote();
+            }
+        });
+        this.quickNoteBtn.addEventListener('click', () => this.submitQuickNote());
 
         // Auto-save on window beforeunload
         window.addEventListener('beforeunload', (e) => {
@@ -1103,6 +1116,52 @@ Select a note from the sidebar or create a new one to start writing.
         } else {
             // No previous selection, load welcome content
             this.loadWelcomeContent();
+        }
+    }
+
+    async submitQuickNote() {
+        const content = this.quickNoteInput.value.trim();
+
+        if (!content) {
+            this.showError('Please enter a note');
+            return;
+        }
+
+        this.quickNoteBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/quick-note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to add quick note');
+            }
+
+            const data = await response.json();
+            this.quickNoteInput.value = '';
+            this.showSuccess('Quick note added to journal');
+
+            // Reload the file if it's currently open
+            if (this.currentFile === data.path) {
+                const fileResponse = await fetch(`/api/notes/${data.path}`);
+                if (fileResponse.ok) {
+                    const fileData = await fileResponse.json();
+                    this.markdownEditor.value = fileData.content;
+                    this.updatePreview();
+                    this.unsavedChanges = false;
+                }
+            }
+
+        } catch (error) {
+            console.error('Error adding quick note:', error);
+            this.showError('Failed to add quick note');
+        } finally {
+            this.quickNoteBtn.disabled = false;
         }
     }
 }
