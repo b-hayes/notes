@@ -744,28 +744,42 @@ body {
     }
 }
 
-/* Link Toolbar */
-.link-toolbar {
+/* Formatting Toolbar */
+.formatting-toolbar {
     display: none;
     background: var(--bg-editor-header);
     border: 1px solid var(--border-editor);
     border-radius: 4px;
     box-shadow: 0 2px 8px var(--shadow-color);
     z-index: 1000;
+    overflow: hidden;
 }
 
-.link-toolbar-btn {
+.formatting-btn {
+    background: var(--bg-editor-header);
+    color: var(--text-editor);
+    border: none;
+    border-right: 1px solid var(--border-editor);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.formatting-btn:last-child {
+    border-right: none;
+}
+
+.formatting-btn:hover {
     background: var(--accent-primary);
     color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: background 0.2s;
-    white-space: nowrap;
 }
 
-.link-toolbar-btn:hover {
-    background: var(--accent-hover);
+.formatting-btn[data-action="italic"] {
+    font-style: italic;
+}
+
+.formatting-btn[data-action="strikethrough"] {
+    text-decoration: line-through;
 }

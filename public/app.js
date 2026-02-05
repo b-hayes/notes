@@ -853,6 +853,10 @@ class NotesApp {
         this.wrapSelectionWithMarkdown('*');
     }
 
+    toggleStrikethrough() {
+        this.wrapSelectionWithMarkdown('~~');
+    }
+
     wrapSelectionWithMarkdown(wrapper) {
         const textarea = this.markdownEditor;
         const start = textarea.selectionStart;
@@ -904,22 +908,79 @@ class NotesApp {
     showLinkToolbar() {
         if (!this.linkToolbar) {
             this.linkToolbar = document.createElement('div');
-            this.linkToolbar.className = 'link-toolbar';
-            this.linkToolbar.innerHTML = '<button class="link-toolbar-btn" title="Insert Link">🔗 Link</button>';
+            this.linkToolbar.className = 'formatting-toolbar';
+            this.linkToolbar.innerHTML = `
+                <button class="formatting-btn" data-action="bold" title="Bold (Ctrl+B)">B</button>
+                <button class="formatting-btn" data-action="italic" title="Italic (Ctrl+I)">I</button>
+                <button class="formatting-btn" data-action="strikethrough" title="Strikethrough">S</button>
+                <button class="formatting-btn" data-action="link" title="Insert Link">🔗</button>
+            `;
             document.body.appendChild(this.linkToolbar);
 
-            const linkBtn = this.linkToolbar.querySelector('.link-toolbar-btn');
-            linkBtn.addEventListener('click', () => this.insertLink());
+            this.linkToolbar.addEventListener('click', (e) => {
+                const btn = e.target.closest('.formatting-btn');
+                if (!btn) return;
+
+                const action = btn.dataset.action;
+                if (action === 'bold') this.toggleBold();
+                else if (action === 'italic') this.toggleItalic();
+                else if (action === 'strikethrough') this.toggleStrikethrough();
+                else if (action === 'link') this.insertLink();
+            });
         }
 
-        const textarea = this.markdownEditor;
-        const rect = textarea.getBoundingClientRect();
+        const caretPos = this.getCaretCoordinates(this.markdownEditor, this.markdownEditor.selectionStart);
+        const rect = this.markdownEditor.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
         this.linkToolbar.style.display = 'block';
         this.linkToolbar.style.position = 'absolute';
-        this.linkToolbar.style.top = (rect.top + scrollTop - 40) + 'px';
-        this.linkToolbar.style.left = (rect.left + (rect.width / 2) - 50) + 'px';
+        this.linkToolbar.style.top = (rect.top + scrollTop + caretPos.top - this.markdownEditor.scrollTop - 40) + 'px';
+        this.linkToolbar.style.left = (rect.left + caretPos.left - 30) + 'px';
+    }
+
+    getCaretCoordinates(textarea, position) {
+        // Create a mirror div to measure text position
+        const mirror = document.createElement('div');
+        const style = getComputedStyle(textarea);
+
+        // Copy textarea styles to mirror
+        mirror.style.cssText = `
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            width: ${textarea.clientWidth}px;
+            height: auto;
+            font-family: ${style.fontFamily};
+            font-size: ${style.fontSize};
+            font-weight: ${style.fontWeight};
+            line-height: ${style.lineHeight};
+            padding: ${style.padding};
+            border: ${style.border};
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        `;
+
+        // Get text up to the caret position
+        const textBeforeCaret = textarea.value.substring(0, position);
+        mirror.textContent = textBeforeCaret;
+
+        // Add a span at caret position to measure
+        const caretSpan = document.createElement('span');
+        caretSpan.textContent = '|';
+        mirror.appendChild(caretSpan);
+
+        document.body.appendChild(mirror);
+
+        const coordinates = {
+            top: caretSpan.offsetTop,
+            left: caretSpan.offsetLeft
+        };
+
+        document.body.removeChild(mirror);
+
+        return coordinates;
     }
 
     hideLinkToolbar() {
