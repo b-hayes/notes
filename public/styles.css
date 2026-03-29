@@ -788,6 +788,8 @@ body {
 .markdown-content li.checklist-item {
     list-style: none;
     margin-left: -16px;
+    position: relative;
+    padding-right: 28px;
 }
 
 .markdown-content li.checklist-item input[type="checkbox"] {
@@ -825,4 +827,36 @@ body {
 
 .markdown-content .checklist-checked {
     opacity: 0.9;
+}
+
+.markdown-content .drag-handle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 18px;
+    text-align: center;
+    cursor: grab;
+    color: var(--text-subdued);
+    opacity: 0.4;
+    user-select: none;
+}
+
+.markdown-content li.checklist-item:hover .drag-handle {
+    opacity: 0.8;
+}
+
+.markdown-content li.checklist-item.dragging {
+    opacity: 0.4;
+}
+
+.markdown-content li.checklist-item.drag-over-before {
+    border-top: 2px solid var(--accent-primary);
+}
+
+.markdown-content li.checklist-item.drag-over-after {
+    border-bottom: 2px solid var(--accent-primary);
 }

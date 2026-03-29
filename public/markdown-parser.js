@@ -192,9 +192,9 @@ class MarkdownParser {
                 const uncheckedMatch = itemContent.match(/^\[ \] (.*)/);
                 const checkedMatch = itemContent.match(/^\[x\] (.*)/i);
                 if (uncheckedMatch) {
-                    listItems.push(`<li class="checklist-item"><input type="checkbox" data-checkbox-index="${checkboxIndex++}"> ${uncheckedMatch[1]}</li>`);
+                    listItems.push(`<li class="checklist-item" draggable="true" data-checkbox-index="${checkboxIndex++}"><span class="drag-handle">⠿</span><input type="checkbox" data-checkbox-index="${checkboxIndex - 1}"> ${uncheckedMatch[1]}</li>`);
                 } else if (checkedMatch) {
-                    listItems.push(`<li class="checklist-item"><input type="checkbox" checked data-checkbox-index="${checkboxIndex++}"> <span class="checklist-checked">${checkedMatch[1]}</span></li>`);
+                    listItems.push(`<li class="checklist-item" draggable="true" data-checkbox-index="${checkboxIndex++}"><span class="drag-handle">⠿</span><input type="checkbox" checked data-checkbox-index="${checkboxIndex - 1}"> <span class="checklist-checked">${checkedMatch[1]}</span></li>`);
                 } else {
                     listItems.push(`<li>${itemContent}</li>`);
                 }

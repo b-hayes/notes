@@ -3,6 +3,7 @@ class NotesApp {
         this.currentFile = null;
         this.unsavedChanges = false;
         this.parser = new MarkdownParser();
+        this._draggingCheckboxIndex = null;
         this.autoSaveTimeout = null;
         this.selectedFolder = ''; // Track currently selected folder for new items
         this.draggedItem = null; // Track item being dragged
@@ -224,6 +225,18 @@ class NotesApp {
 
         // Checkbox toggles in preview
         this.markdownPreview.addEventListener('click', (e) => this.handleCheckboxClick(e));
+
+        // Checklist drag-to-reorder (mouse)
+        this.markdownPreview.addEventListener('dragstart', (e) => this.handleChecklistDragStart(e));
+        this.markdownPreview.addEventListener('dragover', (e) => this.handleChecklistDragOver(e));
+        this.markdownPreview.addEventListener('dragleave', (e) => this.handleChecklistDragLeave(e));
+        this.markdownPreview.addEventListener('dragend', () => this.clearChecklistDragState());
+        this.markdownPreview.addEventListener('drop', (e) => this.handleChecklistDrop(e));
+
+        // Checklist drag-to-reorder (touch)
+        this.markdownPreview.addEventListener('touchstart', (e) => this.handleChecklistTouchStart(e), { passive: true });
+        this.markdownPreview.addEventListener('touchmove', (e) => this.handleChecklistTouchMove(e), { passive: false });
+        this.markdownPreview.addEventListener('touchend', (e) => this.handleChecklistTouchEnd(e));
     }
 
     async loadFileStructure() {
@@ -1094,6 +1107,119 @@ class NotesApp {
             return match;
         });
 
+        this.markdownEditor.value = updated;
+        this.onEditorChange();
+    }
+
+    handleChecklistTouchStart(e) {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        const li = handle.closest('li.checklist-item');
+        if (!li) return;
+        this._draggingCheckboxIndex = parseInt(li.dataset.checkboxIndex, 10);
+        li.classList.add('dragging');
+    }
+
+    handleChecklistTouchMove(e) {
+        if (this._draggingCheckboxIndex === null) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const li = target && target.closest('li.checklist-item');
+
+        this.markdownPreview.querySelectorAll('.drag-over-before, .drag-over-after').forEach(el => {
+            el.classList.remove('drag-over-before', 'drag-over-after');
+        });
+
+        if (li && parseInt(li.dataset.checkboxIndex, 10) !== this._draggingCheckboxIndex) {
+            const rect = li.getBoundingClientRect();
+            const insertBefore = touch.clientY < rect.top + rect.height / 2;
+            li.classList.toggle('drag-over-before', insertBefore);
+            li.classList.toggle('drag-over-after', !insertBefore);
+        }
+    }
+
+    handleChecklistTouchEnd(e) {
+        if (this._draggingCheckboxIndex === null) return;
+        const touch = e.changedTouches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const li = target && target.closest('li.checklist-item');
+
+        if (li) {
+            const toIdx = parseInt(li.dataset.checkboxIndex, 10);
+            if (toIdx !== this._draggingCheckboxIndex) {
+                const rect = li.getBoundingClientRect();
+                const insertBefore = touch.clientY < rect.top + rect.height / 2;
+                this._performChecklistReorder(this._draggingCheckboxIndex, toIdx, insertBefore);
+                return;
+            }
+        }
+        this.clearChecklistDragState();
+    }
+
+    handleChecklistDragStart(e) {
+        const li = e.target.closest('li.checklist-item');
+        if (!li) return;
+        this._draggingCheckboxIndex = parseInt(li.dataset.checkboxIndex, 10);
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    handleChecklistDragOver(e) {
+        const li = e.target.closest('li.checklist-item');
+        if (!li) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const rect = li.getBoundingClientRect();
+        const insertBefore = e.clientY < rect.top + rect.height / 2;
+        li.classList.toggle('drag-over-before', insertBefore);
+        li.classList.toggle('drag-over-after', !insertBefore);
+    }
+
+    handleChecklistDragLeave(e) {
+        const li = e.target.closest('li.checklist-item');
+        if (!li) return;
+        // Only clear if we're leaving the li entirely (not moving to a child)
+        if (!li.contains(e.relatedTarget)) {
+            li.classList.remove('drag-over-before', 'drag-over-after');
+        }
+    }
+
+    clearChecklistDragState() {
+        this.markdownPreview.querySelectorAll('.drag-over-before, .drag-over-after, .dragging').forEach(el => {
+            el.classList.remove('drag-over-before', 'drag-over-after', 'dragging');
+        });
+        this._draggingCheckboxIndex = null;
+    }
+
+    handleChecklistDrop(e) {
+        const li = e.target.closest('li.checklist-item');
+        if (!li || this._draggingCheckboxIndex === null) return;
+        e.preventDefault();
+
+        const toIdx = parseInt(li.dataset.checkboxIndex, 10);
+        const rect = li.getBoundingClientRect();
+        const insertBefore = e.clientY < rect.top + rect.height / 2;
+        this._performChecklistReorder(this._draggingCheckboxIndex, toIdx, insertBefore);
+    }
+
+    _performChecklistReorder(fromIdx, toIdx, insertBefore) {
+        if (fromIdx === toIdx) { this.clearChecklistDragState(); return; }
+
+        let targetIdx = insertBefore ? toIdx : toIdx + 1;
+
+        const markdown = this.markdownEditor.value;
+        const matches = [...markdown.matchAll(/^([ \t]*[-*+] \[[ xX]\] .*)/gm)];
+        if (fromIdx >= matches.length || targetIdx > matches.length) { this.clearChecklistDragState(); return; }
+
+        const lines = matches.map(m => m[0]);
+        const adjustedTarget = targetIdx > fromIdx ? targetIdx - 1 : targetIdx;
+        lines.splice(adjustedTarget, 0, lines.splice(fromIdx, 1)[0]);
+
+        let count = 0;
+        const updated = markdown.replace(/^([ \t]*[-*+] \[[ xX]\] .*)/gm, () => lines[count++]);
+
+        this.clearChecklistDragState();
         this.markdownEditor.value = updated;
         this.onEditorChange();
     }
