@@ -783,3 +783,46 @@ body {
 .formatting-btn[data-action="strikethrough"] {
     text-decoration: line-through;
 }
+
+/* Checklist styles */
+.markdown-content li.checklist-item {
+    list-style: none;
+    margin-left: -16px;
+}
+
+.markdown-content li.checklist-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-subdued);
+    border-radius: 3px;
+    margin-right: 8px;
+    cursor: pointer;
+    vertical-align: middle;
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+}
+
+.markdown-content li.checklist-item input[type="checkbox"]:checked {
+    border-color: var(--success-color);
+}
+
+.markdown-content li.checklist-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0px;
+    width: 6px;
+    height: 11px;
+    border: 2px solid var(--success-color);
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+}
+
+.markdown-content .checklist-checked {
+    opacity: 0.9;
+}

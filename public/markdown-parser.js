@@ -113,13 +113,13 @@ class MarkdownParser {
         // Only escape HTML that's not part of our generated markdown tags
         return html.replace(/</g, function(match, offset, string) {
             // Don't escape if it's part of our generated HTML tags
-            if (string.substr(offset).match(/^<(\/?(h[1-6]|p|strong|em|del|code|pre|ul|ol|li|blockquote|a|img|hr)(\s[^>]*)?\/?)>/)) {
+            if (string.substr(offset).match(/^<(\/?(h[1-6]|p|strong|em|del|code|pre|ul|ol|li|blockquote|a|img|hr|input|span)(\s[^>]*)?\/?)>/)) {
                 return match;
             }
             return '&lt;';
         }).replace(/>/g, function(match, offset, string) {
             // Don't escape if it's part of our generated HTML tags
-            if (string.substr(0, offset + 1).match(/<(\/?(h[1-6]|p|strong|em|del|code|pre|ul|ol|li|blockquote|a|img|hr)(\s[^>]*)?\/?)>$/)) {
+            if (string.substr(0, offset + 1).match(/<(\/?(h[1-6]|p|strong|em|del|code|pre|ul|ol|li|blockquote|a|img|hr|input|span)(\s[^>]*)?\/?)>$/)) {
                 return match;
             }
             return '&gt;';
@@ -172,11 +172,12 @@ class MarkdownParser {
         let inUnorderedList = false;
         let inOrderedList = false;
         let listItems = [];
+        let checkboxIndex = 0;
 
         for (let line of lines) {
             const trimmedLine = line.trim();
 
-            // Unordered list
+            // Unordered list (including checklists)
             if (trimmedLine.match(/^[-*+] /)) {
                 if (inOrderedList) {
                     result.push(`<ol>${listItems.join('')}</ol>`);
@@ -187,7 +188,16 @@ class MarkdownParser {
                     inUnorderedList = true;
                     listItems = [];
                 }
-                listItems.push(`<li>${trimmedLine.substring(2)}</li>`);
+                const itemContent = trimmedLine.substring(2);
+                const uncheckedMatch = itemContent.match(/^\[ \] (.*)/);
+                const checkedMatch = itemContent.match(/^\[x\] (.*)/i);
+                if (uncheckedMatch) {
+                    listItems.push(`<li class="checklist-item"><input type="checkbox" data-checkbox-index="${checkboxIndex++}"> ${uncheckedMatch[1]}</li>`);
+                } else if (checkedMatch) {
+                    listItems.push(`<li class="checklist-item"><input type="checkbox" checked data-checkbox-index="${checkboxIndex++}"> <span class="checklist-checked">${checkedMatch[1]}</span></li>`);
+                } else {
+                    listItems.push(`<li>${itemContent}</li>`);
+                }
             }
             // Ordered list
             else if (trimmedLine.match(/^\d+\. /)) {

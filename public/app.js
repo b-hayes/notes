@@ -109,6 +109,24 @@ class NotesApp {
                 const leadingSpaces = currentLine.match(/^ */)[0].length;
                 const indent = ' '.repeat(leadingSpaces);
 
+                // Continue checklist on Enter
+                const checklistMatch = currentLine.match(/^( *)- \[([ xX])\] (.*)/);
+                if (checklistMatch) {
+                    const itemText = checklistMatch[3];
+                    if (itemText.trim() === '') {
+                        // Empty checklist item — exit the list (remove the prefix)
+                        const lineStartPos = lastNewline + 1;
+                        this.markdownEditor.value = value.substring(0, lineStartPos) + '\n' + value.substring(lineStartPos + currentLine.length);
+                        this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = lineStartPos + 1;
+                    } else {
+                        const insertion = '\n' + indent + '- [ ] ';
+                        this.markdownEditor.value = value.substring(0, start) + insertion + value.substring(end);
+                        this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + insertion.length;
+                    }
+                    this.onEditorChange();
+                    return;
+                }
+
                 this.markdownEditor.value = value.substring(0, start) + '\n' + indent + value.substring(end);
                 this.markdownEditor.selectionStart = this.markdownEditor.selectionEnd = start + 1 + leadingSpaces;
                 this.onEditorChange();
@@ -203,6 +221,9 @@ class NotesApp {
 
         // Intercept link clicks in preview for relative paths
         this.markdownPreview.addEventListener('click', (e) => this.handlePreviewLinkClick(e));
+
+        // Checkbox toggles in preview
+        this.markdownPreview.addEventListener('click', (e) => this.handleCheckboxClick(e));
     }
 
     async loadFileStructure() {
@@ -1052,6 +1073,29 @@ class NotesApp {
                 this.showError(`Failed to open note: ${notePath}`);
             }
         }
+    }
+
+    handleCheckboxClick(e) {
+        const checkbox = e.target.closest('input[type="checkbox"]');
+        if (!checkbox) return;
+
+        e.preventDefault();
+
+        const index = parseInt(checkbox.dataset.checkboxIndex, 10);
+        const markdown = this.markdownEditor.value;
+
+        let count = 0;
+        const updated = markdown.replace(/^([ \t]*[-*+] )\[([ xX])\] /gm, (match, prefix, state) => {
+            if (count === index) {
+                count++;
+                return `${prefix}[${state === ' ' ? 'x' : ' '}] `;
+            }
+            count++;
+            return match;
+        });
+
+        this.markdownEditor.value = updated;
+        this.onEditorChange();
     }
 
     isRelativePath(href) {
