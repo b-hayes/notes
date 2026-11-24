@@ -13,3 +13,4 @@ yarn-error.log*
 
 # User data - notes should not be tracked
 data/
+dist/

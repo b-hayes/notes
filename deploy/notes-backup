@@ -1,0 +1,5 @@
+# Daily backup of Notes (the data/ notes folder) to /array/backup.
+# Runs as the host user (backup.sh needs no root: the notes are world-readable,
+# the container is stopped/started via docker, writes to the user-writable /array/backup).
+# Install: sed "s/__USER__/$USER/" deploy/notes-backup | sudo tee /etc/cron.d/notes-backup
+14 2 * * * __USER__ $HOME/repo/notes/bin/backup.sh >> $HOME/repo/notes/backup.log 2>&1

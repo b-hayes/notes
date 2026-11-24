@@ -17,6 +17,12 @@ A simple, web-based markdown notes application with live preview and file organi
 2. run `nom install` and `docker compose up` to start the application
 3. Open your browser and navigate to `http://localhost:3000`
 
+## Backups
+
+- `bin/backup.sh` - stops the container briefly and copies `data/` (and `.env` if present) to `/array/backup/notes-<datetime>`, keeps 7.
+- `bin/restore.sh <backup-dir>` - isolated restore test (default, live instance untouched); `--into-live` for disaster recovery.
+- Cron: `sed "s/__USER__/$USER/" deploy/notes-backup | sudo tee /etc/cron.d/notes-backup`
+
 ## Usage
 
 - **New Note**: Click the 📝 button in the sidebar to create a new note
